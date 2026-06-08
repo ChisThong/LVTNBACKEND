@@ -5,66 +5,151 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResendOtpRequest;
+use App\Http\Requests\Auth\VerifyOtpRequest;
+use App\Mail\SendOtpMail;
+use App\Models\EmailVerification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 class AuthController extends Controller
 {
+    // ──────────────────────────────────────────────────────────────────────
+    //  Helper: sinh OTP và ghi vào bảng email_verifications
+    // ──────────────────────────────────────────────────────────────────────
+    private function generateAndSendOtp(User $user): void
+    {
+        // Hủy tất cả OTP cũ chưa dùng của email này
+        EmailVerification::where('email', $user->email)
+            ->where('is_used', false)
+            ->delete();
+
+        $otp = (string) random_int(100000, 999999);
+
+        EmailVerification::create([
+            'email'      => $user->email,
+            'otp_code'   => $otp,
+            // Ép buộc lấy giờ Việt Nam hiện tại và cộng thêm 5 phút
+            'expires_at' => now('Asia/Ho_Chi_Minh')->addMinutes(5),
+            'is_used'    => false,
+        ]);
+
+        Mail::to($user->email)->send(new SendOtpMail($user->HoTen, $otp));
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/register
+    // ──────────────────────────────────────────────────────────────────────
     /**
      * Đăng ký tài khoản mới.
-     *
-     * POST /api/auth/register
-     *
-     * Body:
-     *   HoTen            (required, min:3)
-     *   email            (required, unique)
-     *   matkhau          (required, min:6)
-     *   matkhau_confirmation (required)
-     *   diachi           (optional)
-     *   sdt              (optional, 10 chữ số, unique)
-     *   ID_role          (optional): 2=NguoiMua | 3=NguoiBan — mặc định 2
+     * User được tạo với TrangThai = 0 (chưa xác thực).
+     * Sau đó sinh OTP và gửi email.
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        // ID_role đã được gán mặc định = 2 (NguoiMua) trong passedValidation() của RegisterRequest
         $user = User::create([
             'HoTen'      => $request->HoTen,
             'email'      => $request->email,
-            'matkhau'    => Hash::make($request->matkhau),   // Hash thủ công → cột matkhau
+            'matkhau'    => Hash::make($request->matkhau),
             'diachi'     => $request->diachi,
             'sdt'        => $request->sdt,
-            'TrangThai'  => 1,
-            'ngaydangki' => now(),
-            'ID_role'    => $request->ID_role,               // 2=NguoiMua, 3=NguoiBan
+            'TrangThai'  => 0,          // Chưa xác thực email
+            // Ép buộc lấy giờ Việt Nam hiện tại cho ngày đăng ký
+            'ngaydangki' => now('Asia/Ho_Chi_Minh'),
+            'ID_role'    => $request->ID_role,
         ]);
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $this->generateAndSendOtp($user);
 
         return response()->json([
             'success' => true,
-            'message' => 'Đăng ký thành công.',
+            'message' => 'Đăng ký thành công. Vui lòng kiểm tra email để lấy mã OTP xác thực.',
             'data'    => [
-                'user'         => $this->formatUser($user),
-                'access_token' => $token,
-                'token_type'   => 'Bearer',
+                'email' => $user->email,
             ],
         ], 201);
     }
 
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/verify-otp
+    // ──────────────────────────────────────────────────────────────────────
+    /**
+     * Xác thực OTP — kích hoạt tài khoản.
+     */
+    public function verifyOtp(VerifyOtpRequest $request): JsonResponse
+    {
+        $record = EmailVerification::where('email', $request->email)
+            ->where('otp_code', $request->otp_code)
+            ->where('is_used', false)
+            ->latest()
+            ->first();
+
+        if (! $record) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã OTP không đúng.',
+            ], 422);
+        }
+
+        // Ép thời gian so sánh hiện tại về cùng múi giờ Việt Nam để check hết hạn chính xác
+        if ($record->expires_at->isBefore(now('Asia/Ho_Chi_Minh'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.',
+            ], 422);
+        }
+
+        // Đánh dấu OTP đã dùng
+        $record->update(['is_used' => true]);
+
+        // Kích hoạt tài khoản
+        $user = User::where('email', $request->email)->first();
+        $user->update(['TrangThai' => 1]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Xác thực email thành công. Bạn có thể đăng nhập ngay bây giờ.',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/resend-otp
+    // ──────────────────────────────────────────────────────────────────────
+    /**
+     * Gửi lại OTP — hủy OTP cũ, sinh mới, gửi email mới.
+     */
+    public function resendOtp(ResendOtpRequest $request): JsonResponse
+    {
+        $user = User::where('email', $request->email)->first();
+
+        if ((int) $user->TrangThai === 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tài khoản này đã được xác thực.',
+            ], 422);
+        }
+
+        $this->generateAndSendOtp($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã gửi lại mã OTP. Vui lòng kiểm tra email.',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/login
+    // ──────────────────────────────────────────────────────────────────────
     /**
      * Đăng nhập — kiểm tra email + mật khẩu bằng cột matkhau.
-     *
-     * POST /api/auth/login
-     * Body: email, matkhau
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        // Tìm user theo email trong bảng `user`
         $user = User::where('email', $request->email)->first();
 
-        // Kiểm tra tồn tại và Hash::check với cột matkhau
         if (! $user || ! Hash::check($request->matkhau, $user->matkhau)) {
             return response()->json([
                 'success' => false,
@@ -72,18 +157,18 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Kiểm tra tài khoản có bị khoá không
+        // Chưa xác thực email
         if ((int) $user->TrangThai === 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tài khoản của bạn đã bị khoá. Vui lòng liên hệ quản trị viên.',
+                'message' => 'Tài khoản chưa xác thực email. Vui lòng kiểm tra hộp thư và nhập mã OTP.',
+                'data'    => ['email' => $user->email],
             ], 403);
         }
 
-        // Xoá tất cả token cũ (single-session per user)
+        // Xoá token cũ (single-session)
         $user->tokens()->delete();
 
-        // Tạo Sanctum token mới
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -97,12 +182,9 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Đăng xuất — thu hồi token hiện tại.
-     *
-     * POST /api/auth/logout
-     * Header: Authorization: Bearer <token>
-     */
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/logout
+    // ──────────────────────────────────────────────────────────────────────
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
@@ -113,12 +195,9 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Thông tin user đang đăng nhập kèm role.
-     *
-     * GET /api/me
-     * Header: Authorization: Bearer <token>
-     */
+    // ──────────────────────────────────────────────────────────────────────
+    //  GET /api/me
+    // ──────────────────────────────────────────────────────────────────────
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load('role');
@@ -129,9 +208,9 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
-     * Format dữ liệu user trả về JSON — không lộ matkhau.
-     */
+    // ──────────────────────────────────────────────────────────────────────
+    //  Helper: format user JSON — không lộ matkhau
+    // ──────────────────────────────────────────────────────────────────────
     private function formatUser(User $user): array
     {
         $user->loadMissing('role');
