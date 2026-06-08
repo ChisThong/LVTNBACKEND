@@ -24,8 +24,10 @@ use Illuminate\Support\Facades\Route;
 
 // Auth
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
-    Route::post('/login',    [AuthController::class, 'login'])->name('auth.login');
+    Route::post('/register',   [AuthController::class, 'register'])->name('auth.register');
+    Route::post('/login',      [AuthController::class, 'login'])->name('auth.login');
+    Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
+    Route::post('/resend-otp', [AuthController::class, 'resendOtp'])->name('auth.resend-otp');
 });
 
 // ── Module 2: Sản phẩm — Public (mọi người xem) ──────────────────────────
