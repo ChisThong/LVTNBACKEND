@@ -5,6 +5,9 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonHangController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\SanPhamController;
+use App\Http\Controllers\BaiVietController;
+use App\Http\Controllers\DiaLyController;
+use App\Http\Controllers\VungMienController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -33,6 +36,12 @@ Route::prefix('auth')->group(function () {
 // ── Module 2: Sản phẩm — Public (mọi người xem) ──────────────────────────
 Route::get('/products',      [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
+Route::get('/xa', [DiaLyController::class, 'getXa']);
+Route::get('/ap', [DiaLyController::class, 'getAp']);
+
+
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROTECTED — Cần Bearer Token (auth:sanctum)
@@ -50,6 +59,19 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── ADMIN only (HTTP 403 nếu sai role) ────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
+        //Quản lý bài viết
+        Route::get('/BlogControl', [BaiVietController::class, 'index']);
+        Route::post('/BlogControl', [BaiVietController::class, 'store']);
+        Route::delete('/BlogControl/{id}', [BaiVietController::class, 'destroy']);
+        Route::get('/BlogControl/{id}', [BaiVietController::class, 'show']);
+        Route::put('/BlogControl/{id}', [BaiVietController::class, 'update']);
+        
+        //Quản lý Map
+        Route::get('/bandoControl', [VungMienController::class, 'index']);
+        Route::post('/bandoControl', [VungMienController::class, 'store']);
+        Route::put('/bandoControl/{id}', [VungMienController::class, 'update']);
+        Route::delete('/bandoControl/{id}', [VungMienController::class, 'destroy']);
+        
     });
 
     // ── Module 2: CRUD Sản phẩm — Admin hoặc NguoiBan ────────────────────
