@@ -17,29 +17,27 @@ class VungMienController extends Controller
         try {
             $query = Map::query();
 
-            $query->when($request->filled('ID_TinhThanh'), function ($T) use ($request) {
-                $T->where('ID_TinhThanh', $request->ID_TinhThanh);
-            });
-            $query->when($request->filled('ID_Xa'), function ($X) use ($request) {
-                $X->where('ID_Xa', $request->ID_Xa);
-            });
-            $query->when($request->filled('ID_Ap'), function ($A) use ($request) {
-                $A->where('ID_Ap', $request->ID_Ap);
-            });
+            if ($request->filled('ID_Ap')) {
+                $query->where('ID_ap', $request->ID_Ap);
+            } elseif ($request->filled('ID_Xa')) {
+                $query->where('ID_xa', $request->ID_Xa);
+            } elseif ($request->filled('ID_TinhThanh')) {
+                $query->where('ID_TinhThanh', $request->ID_TinhThanh);
+            }
 
             $query->when($request->filled('search_map'), function ($search) use ($request) {
                 $search->where('TenDacSan', 'like', '%' . $request->search_map . '%');
             });
-            $data = $query->orderby('ID_map', 'desc')->paginate(10);
+            $data = $query->orderby('id', 'desc')->paginate(10);
 
             return response()->json([
                 'success' => true,
                 'data' => $data
             ], 200);
-        } catch (Exception $e) {
+        } catch (\Exception $e) { 
             return response()->json([
                 'success' => false,
-                'message' => 'Lỗi Hệ Thống: ' . $e->getMessage()
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage()
             ], 500);
         }
     }

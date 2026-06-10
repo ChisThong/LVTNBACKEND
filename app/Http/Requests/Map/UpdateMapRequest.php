@@ -23,12 +23,16 @@ class UpdateMapRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'PhanLoai'=> 'required|string',
-            'TenDacSan'=>'required|string|max:100',
-            'MoTa'=>'required|string',
-            'ViDo'=>'required|numeric',
-            'KinhDo'=>'required|numeric',
-            'HinhAnh'=>'nullable|image|mimes:jpeg,png,jpg,webp|max:2048'
+            'PhanLoai' => 'required|string',
+            'TenDacSan' => 'required|string|max:100',
+            'MoTa' => 'required|string',
+            'ViDo' => 'required|numeric',
+            'KinhDo' => 'required|numeric',
+            'HinhAnh' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'ID_TinhThanh' => 'required',
+            'ID_Xa' => 'nullable',
+            'ID_Ap'=>'nullable'
+        
         ];
     }
     public function message(): array
@@ -43,7 +47,8 @@ class UpdateMapRequest extends FormRequest
             'KinhDo.required'    => 'Kinh độ không được để trống.',
             'KinhDo.numeric'     => 'Kinh độ phải là một số hợp lệ.',
             'HinhAnh.image'      => 'File tải lên phải là định dạng hình ảnh.',
-            'HinhAnh.max'        => 'Kích thước ảnh không được vượt quá 2MB.'
+            'HinhAnh.max'        => 'Kích thước ảnh không được vượt quá 2MB.',
+            'ID_TinhThanh.required' => 'Tỉnh thành không được để trống',
         ];
     }
 }
