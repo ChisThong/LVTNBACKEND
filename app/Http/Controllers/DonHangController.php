@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DonHang\StoreDonHangRequest;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
-use App\Models\SanPham;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,7 +32,7 @@ class DonHangController extends Controller
     {
         // ── Kiểm tra tồn kho trước khi tạo đơn ──────────────────────────────
         $sanPhamIds   = collect($request->san_pham)->pluck('ID_SanPham');
-        $sanPhamList  = SanPham::whereIn('ID_SanPham', $sanPhamIds)
+        $sanPhamList  = Product::whereIn('ID_SanPham', $sanPhamIds)
                                ->where('TrangThai', 1)
                                ->get()
                                ->keyBy('ID_SanPham');
@@ -47,7 +47,7 @@ class DonHangController extends Controller
             }
 
             if (! $sp->conDuTonKho($item['SoLuong'])) {
-                $loi[] = "Sản phẩm \"{$sp->TenSP}\" chỉ còn {$sp->SoLuong} sản phẩm, "
+                $loi[] = "Sản phẩm \"{$sp->TenSanPham}\" chỉ còn {$sp->SoLuongTon} sản phẩm, "
                        . "bạn đặt {$item['SoLuong']}.";
             }
         }
@@ -91,7 +91,7 @@ class DonHangController extends Controller
                 ]);
 
                 // Trừ tồn kho
-                $sp->decrement('SoLuong', $item['SoLuong']);
+                $sp->decrement('SoLuongTon', $item['SoLuong']);
             }
 
             DB::commit();

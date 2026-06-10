@@ -3,7 +3,9 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonHangController;
+use App\Http\Controllers\PhanLoaiController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SanPhamController;
 use App\Http\Controllers\BaiVietController;
 use App\Http\Controllers\DiaLyController;
@@ -43,6 +45,10 @@ Route::get('/ap', [DiaLyController::class, 'getAp']);
 
 
 
+// ── Module 3: Phân loại sản phẩm — Public ──────────────────────────────────────
+Route::get('/phan-loai',      [PhanLoaiController::class, 'index'])->name('phanloai.index');
+Route::get('/phan-loai/{id}', [PhanLoaiController::class, 'show'])->name('phanloai.show');
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PROTECTED — Cần Bearer Token (auth:sanctum)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -58,20 +64,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── ADMIN only (HTTP 403 nếu sai role) ────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
-        //Quản lý bài viết
+        Route::get('/dashboard',         [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
+        
+        // ── Module 4: Shop — Admin quản lý duyệt ──────────────────────────────
+        Route::get('/shops',             [ShopController::class,     'adminIndex'])->name('admin.shops.index');
+        Route::put('/shops/{id}/approve',[ShopController::class,     'approve'])->name('admin.shops.approve');
+        Route::put('/shops/{id}/reject', [ShopController::class,     'reject'])->name('admin.shops.reject');
+        
+        // ── Quản lý bài viết ────────────────────────────────────────────────
         Route::get('/BlogControl', [BaiVietController::class, 'index']);
         Route::post('/BlogControl', [BaiVietController::class, 'store']);
         Route::delete('/BlogControl/{id}', [BaiVietController::class, 'destroy']);
         Route::get('/BlogControl/{id}', [BaiVietController::class, 'show']);
         Route::put('/BlogControl/{id}', [BaiVietController::class, 'update']);
         
-        //Quản lý Map
+        // ── Quản lý Map ─────────────────────────────────────────────────────
         Route::get('/bandoControl', [VungMienController::class, 'index']);
         Route::post('/bandoControl', [VungMienController::class, 'store']);
         Route::put('/bandoControl/{id}', [VungMienController::class, 'update']);
         Route::delete('/bandoControl/{id}', [VungMienController::class, 'destroy']);
-        
     });
 
     // ── Module 2: CRUD Sản phẩm — Admin hoặc NguoiBan ────────────────────
@@ -86,6 +97,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:NguoiBan')->group(function () {
         Route::get('/seller/dashboard', [DashboardController::class, 'sellerDashboard'])->name('seller.dashboard');
     });
+
+    // ── Module 4: Shop (Gian hàng) — Quản lý shop của user (Đăng ký, Xem, Cập nhật) ──
+    Route::get('/seller/shop',              [ShopController::class, 'myShop'])->name('seller.shop.show');
+    Route::put('/seller/shop',              [ShopController::class, 'update'])->name('seller.shop.update');
+    Route::post('/seller/shop/register',    [ShopController::class, 'register'])->name('seller.shop.register');
 
     // ── NGUOI MUA only ─────────────────────────────────────────────────────
     Route::middleware('role:NguoiMua')->group(function () {

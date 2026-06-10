@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
 class ProductController extends Controller
 {
     // ─── Eager-load mặc định ─────────────────────────────────────────────────
-    private array $with = ['shop', 'phanLoai', 'hinhAnh'];
+    private array $with = ['shop', 'phanLoai', 'hinhAnh', 'tinhThanh'];
 
     // ─────────────────────────────────────────────────────────────────────────
     // GET /api/products

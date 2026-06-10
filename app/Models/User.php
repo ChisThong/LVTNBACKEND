@@ -84,6 +84,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Quan hệ: User có một Shop (NguoiBan).
+     */
+    public function shop()
+    {
+        return $this->hasOne(Shop::class, 'ID_User', 'ID_User');
+    }
+
+    /**
      * Helper: kiểm tra role theo tên.
      */
     public function hasRole(string $roleName): bool

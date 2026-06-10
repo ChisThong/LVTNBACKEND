@@ -24,7 +24,7 @@ return new class extends Migration
             $table->string('matkhau');
             $table->tinyInteger('TrangThai')->default(1)->comment('1=active, 0=inactive');
             $table->timestamp('ngaydangki')->useCurrent();
-            $table->unsignedInteger('ID_role')->default(3)->comment('3=NguoiMua');
+            $table->unsignedInteger('ID_role')->default(2)->comment('2=NguoiMua');
             $table->foreign('ID_role')->references('ID_role')->on('role');
         });
     }

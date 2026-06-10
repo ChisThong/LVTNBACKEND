@@ -34,6 +34,6 @@ class ChiTietDonHang extends Model
 
     public function sanPham()
     {
-        return $this->belongsTo(SanPham::class, 'ID_SanPham', 'ID_SanPham');
+        return $this->belongsTo(Product::class, 'ID_SanPham', 'ID_SanPham');
     }
 }

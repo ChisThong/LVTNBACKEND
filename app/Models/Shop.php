@@ -6,6 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shop extends Model
 {
+    // ─── Trạng thái duyệt ────────────────────────────────────────────────────
+    const DUYET_CHO     = 'cho_duyet';
+    const DUYET_DA      = 'da_duyet';
+    const DUYET_TU_CHOI = 'tu_choi';
+
     protected $table = 'shop';
 
     protected $primaryKey = 'ID_Shop';
@@ -14,8 +19,33 @@ class Shop extends Model
 
     protected $fillable = [
         'TenShop',
+        'logo',
+        'baner',
+        'SCCD',
+        'SoDienThoai',
+        'DiaChi',
+        'TenNganHang',
+        'SoTaiKhoang',
+        'Tittle',
+        'GioiThieu',
+        'NgayDangKy',
+        'NgayDuyet',
+        'TrangThaiDuyet',
+        'LyDoTuChoi',
+        'TrangThai',
         'ID_User',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'TrangThai'  => 'integer',
+            'NgayDangKy' => 'datetime',
+            'NgayDuyet'  => 'datetime',
+        ];
+    }
+
+    // ─── Relationships ────────────────────────────────────────────────────────
 
     /**
      * User (NguoiBan) sở hữu shop này.
@@ -31,5 +61,17 @@ class Shop extends Model
     public function products()
     {
         return $this->hasMany(Product::class, 'ID_Shop', 'ID_Shop');
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    public function isDaDuyet(): bool
+    {
+        return $this->TrangThaiDuyet === self::DUYET_DA;
+    }
+
+    public function isChoDuyet(): bool
+    {
+        return $this->TrangThaiDuyet === self::DUYET_CHO;
     }
 }

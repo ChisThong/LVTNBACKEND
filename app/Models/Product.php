@@ -92,6 +92,14 @@ class Product extends Model
         return $this->hasMany(HinhAnh::class, 'ID_SanPham', 'ID_SanPham');
     }
 
+    /**
+     * Tỉnh/Thành sản phẩm thuộc về.
+     */
+    public function tinhThanh()
+    {
+        return $this->belongsTo(TinhThanh::class, 'ID_TinhThanh', 'ID_TinhThanh');
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     /**

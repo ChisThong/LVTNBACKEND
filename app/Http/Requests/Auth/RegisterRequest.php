@@ -21,6 +21,17 @@ class RegisterRequest extends FormRequest
             'email'                => ['required', 'email:rfc,dns', 'max:100', 'unique:user,email'],
 
             // Mật khẩu: tối thiểu 6 ký tự, phải xác nhận
+//             'matkhau' => [
+//     'required',
+//     'string',
+//     'min:8',
+//     'max:50',
+//     'confirmed',
+//     'regex:/[a-z]/',
+//     'regex:/[A-Z]/',
+//     'regex:/[0-9]/',
+//     'regex:/[@$!%*#?&]/',
+// ],
             'matkhau'              => ['required', 'string', 'min:6', 'confirmed'],
             'matkhau_confirmation' => ['required', 'string'],
 
