@@ -30,7 +30,7 @@ class DashboardController extends Controller
                 'dashboard' => 'Admin Dashboard',
                 'stats'     => [
                     'total_users'    => \App\Models\User::count(),
-                    'total_products' => \App\Models\SanPham::count(),
+                    'total_products' => \App\Models\Product::count(),
                     'total_orders'   => \App\Models\DonHang::count(),
                 ],
             ],

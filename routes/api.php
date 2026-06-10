@@ -3,8 +3,9 @@
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonHangController;
+use App\Http\Controllers\PhanLoaiController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\SanPhamController;
+use App\Http\Controllers\ShopController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,6 +35,10 @@ Route::prefix('auth')->group(function () {
 Route::get('/products',      [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
 
+// ── Module 3: Phân loại sản phẩm — Public ──────────────────────────────────────
+Route::get('/phan-loai',      [PhanLoaiController::class, 'index'])->name('phanloai.index');
+Route::get('/phan-loai/{id}', [PhanLoaiController::class, 'show'])->name('phanloai.show');
+
 // ═══════════════════════════════════════════════════════════════════════════
 // PROTECTED — Cần Bearer Token (auth:sanctum)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -49,7 +54,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── ADMIN only (HTTP 403 nếu sai role) ────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
+        Route::get('/dashboard',         [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
+        // ── Module 4: Shop — Admin quản lý duyệt ──────────────────────────────
+        Route::get('/shops',             [ShopController::class,     'adminIndex'])->name('admin.shops.index');
+        Route::put('/shops/{id}/approve',[ShopController::class,     'approve'])->name('admin.shops.approve');
+        Route::put('/shops/{id}/reject', [ShopController::class,     'reject'])->name('admin.shops.reject');
     });
 
     // ── Module 2: CRUD Sản phẩm — Admin hoặc NguoiBan ────────────────────
@@ -63,7 +72,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── NGUOI BAN only ─────────────────────────────────────────────────────
     Route::middleware('role:NguoiBan')->group(function () {
         Route::get('/seller/dashboard', [DashboardController::class, 'sellerDashboard'])->name('seller.dashboard');
+        // ── Module 4: Shop (Gian hàng) — Người Bán ────────────────────────────
+        Route::get('/seller/shop',              [ShopController::class, 'myShop'])->name('seller.shop.show');
+        Route::put('/seller/shop',              [ShopController::class, 'update'])->name('seller.shop.update');
     });
+
+    // ── Shop: Đăng ký gian hàng — Mọi user đăng nhập đều được ────────────────
+    Route::post('/seller/shop/register', [ShopController::class, 'register'])->name('seller.shop.register');
 
     // ── NGUOI MUA only ─────────────────────────────────────────────────────
     Route::middleware('role:NguoiMua')->group(function () {

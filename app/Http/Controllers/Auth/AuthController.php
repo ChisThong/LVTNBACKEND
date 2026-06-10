@@ -28,14 +28,14 @@ class AuthController extends Controller
             ->delete();
 
         $otp = (string) random_int(100000, 999999);
-
-        EmailVerification::create([
-            'email'      => $user->email,
-            'otp_code'   => $otp,
-            // Ép buộc lấy giờ Việt Nam hiện tại và cộng thêm 5 phút
-            'expires_at' => now('Asia/Ho_Chi_Minh')->addMinutes(5),
-            'is_used'    => false,
-        ]);
+EmailVerification::create([
+    'email'       => $user->email,
+    'otp_code'    => $otp,
+    'created_at'  => now(), // Ép cột tạo mới về giờ VN
+    'updated_at'  => now(), // Ép cột cập nhật về giờ VN
+    'expires_at'  => now()->addMinutes(5),
+    'is_used'     => false,
+]);
 
         Mail::to($user->email)->send(new SendOtpMail($user->HoTen, $otp));
     }
@@ -58,7 +58,7 @@ class AuthController extends Controller
             'sdt'        => $request->sdt,
             'TrangThai'  => 0,          // Chưa xác thực email
             // Ép buộc lấy giờ Việt Nam hiện tại cho ngày đăng ký
-            'ngaydangki' => now('Asia/Ho_Chi_Minh'),
+            'ngaydangki' => now(),
             'ID_role'    => $request->ID_role,
         ]);
 
@@ -95,7 +95,7 @@ class AuthController extends Controller
         }
 
         // Ép thời gian so sánh hiện tại về cùng múi giờ Việt Nam để check hết hạn chính xác
-        if ($record->expires_at->isBefore(now('Asia/Ho_Chi_Minh'))) {
+        if ($record->expires_at->isBefore(now())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.',
@@ -200,7 +200,7 @@ class AuthController extends Controller
     // ──────────────────────────────────────────────────────────────────────
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load('role');
+        $user = $request->user()->load(['role', 'shop']);
 
         return response()->json([
             'success' => true,
@@ -213,7 +213,7 @@ class AuthController extends Controller
     // ──────────────────────────────────────────────────────────────────────
     private function formatUser(User $user): array
     {
-        $user->loadMissing('role');
+        $user->loadMissing(['role', 'shop']);
 
         return [
             'ID_User'    => $user->ID_User,
@@ -226,6 +226,11 @@ class AuthController extends Controller
             'role'       => $user->role ? [
                 'ID_role'  => $user->role->ID_role,
                 'Ten_role' => $user->role->Ten_role,
+            ] : null,
+            'shop'       => $user->shop ? [
+                'ID_Shop'        => $user->shop->ID_Shop,
+                'TenShop'        => $user->shop->TenShop,
+                'TrangThaiDuyet' => $user->shop->TrangThaiDuyet,
             ] : null,
         ];
     }
