@@ -32,6 +32,7 @@ class ShopController extends Controller
         $shop = Shop::create([
             'TenShop'        => $request->TenShop,
             'SCCD'           => $request->SCCD,
+            'SoDienThoai'    => $request->SoDienThoai,
             'DiaChi'         => $request->DiaChi,
             'SoTaiKhoang'    => $request->SoTaiKhoang,
             'TenNganHang'    => $request->TenNganHang,
@@ -124,11 +125,25 @@ class ShopController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     public function adminIndex(Request $request): JsonResponse
     {
-        $query = Shop::with('user:ID_User,HoTen,email,sdt');
+        $query = Shop::with('user:ID_User,HoTen,email,sdt')->withCount('products');
 
         // Lọc theo trạng thái duyệt
         if ($request->filled('trang_thai_duyet')) {
             $query->where('TrangThaiDuyet', $request->trang_thai_duyet);
+        }
+
+        // Tìm kiếm
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('TenShop', 'like', "%{$search}%")
+                  ->orWhere('SoDienThoai', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($qUser) use ($search) {
+                      $qUser->where('HoTen', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%")
+                            ->orWhere('sdt', 'like', "%{$search}%");
+                  });
+            });
         }
 
         $shops = $query->orderByDesc('NgayDangKy')->paginate(20);
@@ -165,6 +180,7 @@ class ShopController extends Controller
         $shop->update([
             'TrangThaiDuyet' => Shop::DUYET_DA,
             'NgayDuyet'      => now(),
+            'LyDoTuChoi'     => null,
         ]);
 
         // ── Chuyển role user sang NguoiBan (ID_role = 3) ──────────────────────
@@ -181,8 +197,12 @@ class ShopController extends Controller
     // PUT /api/admin/shops/{id}/reject
     // Middleware: auth:sanctum + role:Admin
     // ─────────────────────────────────────────────────────────────────────────
-    public function reject(int $id): JsonResponse
+    public function reject(Request $request, int $id): JsonResponse
     {
+        $request->validate([
+            'LyDoTuChoi' => 'nullable|string|max:1000',
+        ]);
+
         $shop = Shop::find($id);
 
         if (! $shop) {
@@ -202,6 +222,7 @@ class ShopController extends Controller
 
         $shop->update([
             'TrangThaiDuyet' => Shop::DUYET_TU_CHOI,
+            'LyDoTuChoi'     => $request->input('LyDoTuChoi', $request->input('ly_do_tu_choi')),
         ]);
 
         // ── Nếu user đang là NguoiBan thì revert về NguoiMua (ID_role = 2) ───

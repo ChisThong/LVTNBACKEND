@@ -96,13 +96,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── NGUOI BAN only ─────────────────────────────────────────────────────
     Route::middleware('role:NguoiBan')->group(function () {
         Route::get('/seller/dashboard', [DashboardController::class, 'sellerDashboard'])->name('seller.dashboard');
-        // ── Module 4: Shop (Gian hàng) — Người Bán ────────────────────────────
-        Route::get('/seller/shop',              [ShopController::class, 'myShop'])->name('seller.shop.show');
-        Route::put('/seller/shop',              [ShopController::class, 'update'])->name('seller.shop.update');
     });
 
-    // ── Shop: Đăng ký gian hàng — Mọi user đăng nhập đều được ────────────────
-    Route::post('/seller/shop/register', [ShopController::class, 'register'])->name('seller.shop.register');
+    // ── Module 4: Shop (Gian hàng) — Quản lý shop của user (Đăng ký, Xem, Cập nhật) ──
+    Route::get('/seller/shop',              [ShopController::class, 'myShop'])->name('seller.shop.show');
+    Route::put('/seller/shop',              [ShopController::class, 'update'])->name('seller.shop.update');
+    Route::post('/seller/shop/register',    [ShopController::class, 'register'])->name('seller.shop.register');
 
     // ── NGUOI MUA only ─────────────────────────────────────────────────────
     Route::middleware('role:NguoiMua')->group(function () {

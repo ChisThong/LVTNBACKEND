@@ -15,6 +15,7 @@ class UpdateShopRequest extends FormRequest
     {
         return [
             'TenShop'     => ['sometimes', 'string', 'min:3', 'max:100'],
+            'SoDienThoai' => ['sometimes', 'string', 'max:15'],
             'DiaChi'      => ['sometimes', 'string', 'max:255'],
             'TenNganHang' => ['nullable', 'string', 'max:100'],
             'SoTaiKhoang' => ['nullable', 'string', 'max:50'],
@@ -30,6 +31,7 @@ class UpdateShopRequest extends FormRequest
     {
         return [
             'TenShop.min'    => 'Tên gian hàng phải có ít nhất 3 ký tự.',
+            'SoDienThoai.max'=> 'Số điện thoại không hợp lệ.',
             'logo.image'     => 'Logo phải là file hình ảnh.',
             'logo.max'       => 'Logo không được vượt quá 2MB.',
             'baner.image'    => 'Banner phải là file hình ảnh.',

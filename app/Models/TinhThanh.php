@@ -25,8 +25,7 @@ class TinhThanh extends Model
     public function products()
     {
         return $this->hasMany(Product::class, 'ID_TinhThanh', 'ID_TinhThanh');
-    } // <-- Đã bổ sung dấu đóng ngoặc nhọn bị thiếu ở đây để hết lỗi cú pháp!
-
+    } 
     /**
      * Các bài viết (blogs) thuộc tỉnh/thành này.
      */

@@ -22,6 +22,7 @@ class Shop extends Model
         'logo',
         'baner',
         'SCCD',
+        'SoDienThoai',
         'DiaChi',
         'TenNganHang',
         'SoTaiKhoang',
@@ -30,6 +31,7 @@ class Shop extends Model
         'NgayDangKy',
         'NgayDuyet',
         'TrangThaiDuyet',
+        'LyDoTuChoi',
         'TrangThai',
         'ID_User',
     ];
