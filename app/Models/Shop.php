@@ -18,6 +18,7 @@ class Shop extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'ID_User',
         'TenShop',
         'logo',
         'baner',
@@ -28,12 +29,12 @@ class Shop extends Model
         'SoTaiKhoang',
         'Tittle',
         'GioiThieu',
+        'LoaiHinhKinhDoanh',
         'NgayDangKy',
         'NgayDuyet',
         'TrangThaiDuyet',
         'LyDoTuChoi',
         'TrangThai',
-        'ID_User',
     ];
 
     protected function casts(): array

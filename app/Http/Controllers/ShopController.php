@@ -42,6 +42,7 @@ class ShopController extends Controller
             'NgayDuyet'      => null,
             'TrangThaiDuyet' => Shop::DUYET_CHO,
             'TrangThai'      => 1,
+            'LoaiHinhKinhDoanh' => $request->LoaiHinhKinhDoanh,
             'ID_User'        => $user->ID_User,
         ]);
 
@@ -234,6 +235,75 @@ class ShopController extends Controller
             'success' => true,
             'message' => "Đã từ chối gian hàng \"{$shop->TenShop}\". Tài khoản đã trở về Người Mua.",
             'data'    => $shop->fresh()->load('user:ID_User,HoTen,email,ID_role'),
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/admin/shops/{id}/products
+    // Middleware: auth:sanctum + role:Admin
+    // Admin xem danh sách sản phẩm của một shop cụ thể.
+    // ─────────────────────────────────────────────────────────────────────────
+    public function shopProducts(Request $request, int $id): JsonResponse
+    {
+        $shop = Shop::find($id);
+
+        if (! $shop) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gian hàng không tồn tại.',
+            ], 404);
+        }
+
+        $perPage = (int) ($request->per_page ?? 20);
+
+        $products = $shop->products()
+            ->with(['hinhAnh', 'phanLoai', 'tinhThanh'])
+            ->orderByDesc('ID_SanPham')
+            ->paginate($perPage);
+
+        return response()->json([
+            'success'    => true,
+            'message'    => "Danh sách sản phẩm của shop \"{$shop->TenShop}\".",
+            'shop'       => [
+                'ID_Shop'  => $shop->ID_Shop,
+                'TenShop'  => $shop->TenShop,
+            ],
+            'data'       => $products,
+        ]);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/shops/{id}
+    // Public — Xem chi tiết 1 gian hàng + danh sách sản phẩm.
+    // ─────────────────────────────────────────────────────────────────────────
+    public function publicShow(int $id): JsonResponse
+    {
+        $shop = Shop::where('TrangThai', 1)
+            ->where('TrangThaiDuyet', Shop::DUYET_DA)
+            ->withCount(['products' => function ($q) {
+                $q->where('TrangThai', 1)
+                  ->where('TrangThaiDuyet', 'da_duyet')
+                  ->where('TrangThaiHienThi', 'hien');
+            }])
+            ->find($id);
+
+        if (! $shop) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gian hàng không tồn tại hoặc chưa được duyệt.',
+            ], 404);
+        }
+
+        // Tải kèm danh sách sản phẩm đang bán và đang hiển
+        $shop->load(['products' => function ($q) {
+            $q->where('TrangThai', 1)
+              ->where('TrangThaiDuyet', 'da_duyet')
+              ->where('TrangThaiHienThi', 'hien')
+              ->with(['hinhAnh', 'phanLoai', 'tinhThanh']);
+        }]);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $shop,
         ]);
     }
 }

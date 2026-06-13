@@ -23,7 +23,7 @@ class ProductController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Product::with($this->with)
-            ->where('TrangThai', 1);
+            ->publiclyVisible(); // TrangThaiDuyet=da_duyet + TrangThaiHienThi=hien + TrangThai=1
 
         // Tìm kiếm theo tên
         if ($request->filled('search')) {
@@ -75,7 +75,10 @@ class ProductController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     public function show(int $id): JsonResponse
     {
-        $product = Product::with($this->with)->find($id);
+        $product = Product::with($this->with)
+            ->where('ID_SanPham', $id)
+            ->publiclyVisible() // TrangThaiDuyet=da_duyet + TrangThaiHienThi=hien + TrangThai=1
+            ->first();
 
         if (! $product) {
             return response()->json([
@@ -119,6 +122,7 @@ class ProductController extends Controller
         // TrangThai mặc định = 1 (đang bán), nhưng nếu SoLuongTon = 0
         // thì boot() hook trong model sẽ tự động set TrangThai = 0
         $data['TrangThai'] = $data['TrangThai'] ?? Product::TRANG_THAI_HIEN;
+        $data['TrangThaiDuyet'] = Product::DUYET_CHO;
 
         $product = Product::create($data);
 
@@ -173,6 +177,13 @@ class ProductController extends Controller
         }
 
         $data = $request->safe()->except(['hinh_anh', 'xoa_hinh_anh']);
+
+        // Nếu sản phẩm đang bị từ chối, cập nhật lại sẽ reset về chờ duyệt
+        if ($product->TrangThaiDuyet === Product::DUYET_TU_CHOI) {
+            $data['TrangThaiDuyet'] = Product::DUYET_CHO;
+            $data['LyDoTuChoi'] = null;
+        }
+
         $product->update($data);
 
         // Upload ảnh mới nếu có

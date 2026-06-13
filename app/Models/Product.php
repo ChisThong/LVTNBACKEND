@@ -11,6 +11,15 @@ class Product extends Model
     const TRANG_THAI_AN         = 0;  // Ngừng bán / Ẩn
     const TRANG_THAI_HET_HANG   = 0;  // Hết hàng (cùng giá trị = ẩn khỏi listing)
 
+    // ─── Trạng thái duyệt sản phẩm ───────────────────────────────────────────
+    const DUYET_CHO             = 'cho_duyet';
+    const DUYET_DA              = 'da_duyet';
+    const DUYET_TU_CHOI         = 'tu_choi';
+
+    // ─── Trạng thái hiển thị (Admin kiểm soát) ────────────────────────────
+    const HIEN_THI_HIEN         = 'hien';
+    const HIEN_THI_AN           = 'an';
+
     // ─── Auto-logic khi lưu ──────────────────────────────────────────────────
     /**
      * Hook Eloquent: tự động cập nhật TrangThai khi SoLuongTon = 0.
@@ -51,6 +60,12 @@ class Product extends Model
         'Gia',
         'SoLuongTon',
         'TrangThai',
+        'LyDoAn',
+        'TrangThaiDuyet',
+        'LyDoTuChoi',
+        'NgayDuyet',
+        'TrangThaiHienThi',   // Admin visibility
+        'LyDoAdminAn',        // Lý do Admin ẩn
         'Donvi',
         'ID_Shop',
         'ID_PhanLoai',
@@ -108,6 +123,17 @@ class Product extends Model
     public function conDuTonKho(int $soLuong): bool
     {
         return $this->SoLuongTon >= $soLuong;
+    }
+
+    /**
+     * Scope: sản phẩm công khai cho website (bộ 3 điều kiện).
+     */
+    public function scopePubliclyVisible($query)
+    {
+        return $query
+            ->where('TrangThaiDuyet', self::DUYET_DA)
+            ->where('TrangThaiHienThi', self::HIEN_THI_HIEN)
+            ->where('TrangThai', self::TRANG_THAI_HIEN);
     }
 
     /**
