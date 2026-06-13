@@ -24,6 +24,7 @@ class UpdateShopRequest extends FormRequest
             // Upload logo/banner
             'logo'        => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'baner'       => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'LoaiHinhKinhDoanh' => ['nullable', 'in:ho_kinh_doanh,doanh_nghiep'],
         ];
     }
 

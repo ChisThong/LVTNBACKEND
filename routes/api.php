@@ -43,7 +43,8 @@ Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
 Route::get('/xa', [DiaLyController::class, 'getXa']);
 Route::get('/ap', [DiaLyController::class, 'getAp']);
 
-
+// ── Shop — Public ──────────────────────────────────────────────
+Route::get('/shops/{id}', [ShopController::class, 'publicShow']);
 
 
 // ── Module 3: Phân loại sản phẩm — Public ──────────────────────────────────────
@@ -69,8 +70,20 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // ── Module 4: Shop — Admin quản lý duyệt ──────────────────────────────
         Route::get('/shops',             [ShopController::class,     'adminIndex'])->name('admin.shops.index');
+        Route::get('/shops/{id}/products',[ShopController::class,    'shopProducts'])->name('admin.shops.products');
         Route::put('/shops/{id}/approve',[ShopController::class,     'approve'])->name('admin.shops.approve');
         Route::put('/shops/{id}/reject', [ShopController::class,     'reject'])->name('admin.shops.reject');
+        Route::patch('/shops/{id}/toggle-status', [ShopController::class, 'toggleStatus']);
+
+        // ── Admin Quản lý Sản phẩm ─────────────────────────────────────────────
+        Route::get('/products',          [\App\Http\Controllers\AdminProductController::class, 'index']);
+        Route::get('/products/{id}',     [\App\Http\Controllers\AdminProductController::class, 'show']);
+        Route::put('/products/{id}/hide',            [\App\Http\Controllers\AdminProductController::class, 'hide']);
+        Route::put('/products/{id}/restore',         [\App\Http\Controllers\AdminProductController::class, 'restore']);
+        Route::put('/products/{id}/approve',         [\App\Http\Controllers\AdminProductController::class, 'approve']);
+        Route::put('/products/{id}/reject',          [\App\Http\Controllers\AdminProductController::class, 'reject']);
+        Route::patch('/products/{id}/toggle-visibility', [\App\Http\Controllers\AdminProductController::class, 'toggleVisibility']);
+
         
         // ── Quản lý bài viết ────────────────────────────────────────────────
         Route::get('/BlogControl', [BaiVietController::class, 'index']);

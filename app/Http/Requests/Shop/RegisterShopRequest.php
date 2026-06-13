@@ -22,6 +22,7 @@ class RegisterShopRequest extends FormRequest
             'TenNganHang' => ['nullable', 'string', 'max:100'],
             'Tittle'      => ['nullable', 'string', 'max:255'],
             'GioiThieu'   => ['nullable', 'string', 'max:2000'],
+            'LoaiHinhKinhDoanh' => ['required', 'in:ho_kinh_doanh,doanh_nghiep'],
         ];
     }
 
