@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/shops/{id}/products',[ShopController::class,    'shopProducts'])->name('admin.shops.products');
         Route::put('/shops/{id}/approve',[ShopController::class,     'approve'])->name('admin.shops.approve');
         Route::put('/shops/{id}/reject', [ShopController::class,     'reject'])->name('admin.shops.reject');
+        Route::patch('/shops/{id}/toggle-status', [ShopController::class, 'toggleStatus']);
 
         // ── Admin Quản lý Sản phẩm ─────────────────────────────────────────────
         Route::get('/products',          [\App\Http\Controllers\AdminProductController::class, 'index']);

@@ -231,6 +231,7 @@ EmailVerification::create([
                 'ID_Shop'        => $user->shop->ID_Shop,
                 'TenShop'        => $user->shop->TenShop,
                 'TrangThaiDuyet' => $user->shop->TrangThaiDuyet,
+                'TrangThai'      => $user->shop->TrangThai,
             ] : null,
         ];
     }

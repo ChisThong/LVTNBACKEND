@@ -239,6 +239,27 @@ class ShopController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // PATCH /api/admin/shops/{id}/toggle-status
+    // Middleware: auth:sanctum + role:Admin
+    // ─────────────────────────────────────────────────────────────────────────
+    public function toggleStatus($id): JsonResponse
+    {
+        $shop = Shop::where('ID_Shop', $id)->firstOrFail();
+
+        $shop->TrangThai = $shop->TrangThai == 1 ? 0 : 1;
+
+        $shop->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => $shop->TrangThai
+                ? 'Đã mở lại gian hàng'
+                : 'Đã khóa gian hàng',
+            'TrangThai' => $shop->TrangThai
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // GET /api/admin/shops/{id}/products
     // Middleware: auth:sanctum + role:Admin
     // Admin xem danh sách sản phẩm của một shop cụ thể.
