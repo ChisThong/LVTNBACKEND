@@ -9,6 +9,7 @@ use App\Http\Controllers\ShopController;
 use App\Http\Controllers\SanPhamController;
 use App\Http\Controllers\BaiVietController;
 use App\Http\Controllers\DiaLyController;
+use App\Http\Controllers\NguoiDungController;
 use App\Http\Controllers\VungMienController;
 use Illuminate\Support\Facades\Route;
 
@@ -96,6 +97,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/bandoControl', [VungMienController::class, 'store']);
         Route::put('/bandoControl/{id}', [VungMienController::class, 'update']);
         Route::delete('/bandoControl/{id}', [VungMienController::class, 'destroy']);
+        // Quản lý người dùng
+        Route::get('/Nguoidung',[NguoiDungController::class,'index']);
+        Route::put('/Nguoidung/{id}/ChangeClock',[NguoiDungController::class,'changeclock']);
+        Route::put('/Nguoidung/{id}',[NguoiDungController::class,'update']);
+
     });
 
     // ── Module 2: CRUD Sản phẩm — Admin hoặc NguoiBan ────────────────────
