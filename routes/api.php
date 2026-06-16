@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AdminDonHangController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DonHangController;
@@ -101,7 +102,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/Nguoidung',[NguoiDungController::class,'index']);
         Route::put('/Nguoidung/{id}/ChangeClock',[NguoiDungController::class,'changeclock']);
         Route::put('/Nguoidung/{id}',[NguoiDungController::class,'update']);
-
+        //Quản lý đơn hàng
+        Route::get('/DonHang',[AdminDonHangController::class,'index']);
+        Route::get('/DonHang/{id}',[AdminDonHangController::class,'chitiet']);
     });
 
     // ── Module 2: CRUD Sản phẩm — Admin hoặc NguoiBan ────────────────────
