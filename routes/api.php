@@ -12,6 +12,7 @@ use App\Http\Controllers\BaiVietController;
 use App\Http\Controllers\DiaLyController;
 use App\Http\Controllers\NguoiDungController;
 use App\Http\Controllers\VungMienController;
+use App\Http\Controllers\DanhGiaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -40,6 +41,7 @@ Route::prefix('auth')->group(function () {
 // ── Module 2: Sản phẩm — Public (mọi người xem) ──────────────────────────
 Route::get('/products',      [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/products/{id}/reviews', [DanhGiaController::class, 'index']);
 Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
 Route::get('/xa', [DiaLyController::class, 'getXa']);
 Route::get('/ap', [DiaLyController::class, 'getAp']);
@@ -64,6 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Đơn hàng — user đã đăng nhập xem đơn của mình ─────────────────────
     Route::get('/don-hang',      [DonHangController::class, 'index'])->name('donhang.index');
     Route::get('/don-hang/{id}', [DonHangController::class, 'show'])->name('donhang.show');
+    Route::post('/reviews',      [DanhGiaController::class, 'guiDanhGia']);
 
     // ── ADMIN only (HTTP 403 nếu sai role) ────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
@@ -113,6 +116,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products',           [ProductController::class, 'store'])->name('products.store');
         Route::put('/products/{id}',       [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{id}',    [ProductController::class, 'destroy'])->name('products.destroy');
+        Route::post('/reviews/{id}/reply', [DanhGiaController::class, 'phanhoi']);
     });
 
     // ── NGUOI BAN only ─────────────────────────────────────────────────────
