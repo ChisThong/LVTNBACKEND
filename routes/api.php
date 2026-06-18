@@ -36,14 +36,26 @@ use App\Http\Controllers\DanhGiaController;
 
 // Auth
 Route::prefix('auth')->group(function () {
-    Route::post('/register',   [AuthController::class, 'register'])->name('auth.register');
-    Route::post('/login',      [AuthController::class, 'login'])->name('auth.login');
-    Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
-    Route::post('/resend-otp', [AuthController::class, 'resendOtp'])->name('auth.resend-otp');
+    // Nhóm 1: Tối đa 10 request/phút (Ngăn chặn dò mật khẩu, spam đăng ký)
+    Route::middleware('throttle:10,1')->group(function () {
+        Route::post('/register',   [AuthController::class, 'register'])->name('auth.register');
+        Route::post('/login',      [AuthController::class, 'login'])->name('auth.login');
+    });
+
+    // Nhóm 2: Tối đa 5 request/phút (Ngăn chặn spam tin nhắn/email OTP)
+    Route::middleware('throttle:5,1')->group(function () {
+        Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
+        Route::post('/resend-otp', [AuthController::class, 'resendOtp'])->name('auth.resend-otp');
+        
+        // Sẵn sàng cho API Quên mật khẩu
+        Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot-password');
+        Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->name('auth.reset-password');
+    });
 });
 
 // ── Sản phẩm — Public ─────────────────────────────────────────────────────
 Route::get('/products',      [ProductController::class, 'index'])->name('products.index');
+Route::get('/products/suggest', [ProductController::class, 'getSuggestedProducts'])->name('products.suggest');
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}/reviews', [DanhGiaController::class, 'index']);
 Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
@@ -63,6 +75,7 @@ Route::get('/phan-loai/{id}', [PhanLoaiController::class, 'show'])->name('phanlo
 // ── VNPay Callbacks — Public (VNPay server/browser gọi vào, không cần Auth)
 Route::get('/vnpay/return',  [VNPayController::class, 'returnUrl'])->name('vnpay.return');
 Route::post('/vnpay/ipn',    [VNPayController::class, 'ipn'])->name('vnpay.ipn');
+Route::post('/vnpay/order-ipn', [DonHangController::class, 'vnpayIpn'])->name('vnpay.order.ipn');
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROTECTED — Cần Bearer Token (auth:sanctum)
@@ -70,13 +83,15 @@ Route::post('/vnpay/ipn',    [VNPayController::class, 'ipn'])->name('vnpay.ipn')
 Route::middleware('auth:sanctum')->group(function () {
 
     // ── Auth chung ─────────────────────────────────────────────────────────
-    // ── Auth chung ─────────────────────────────────────────────────────────
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
     Route::get('/me',           [AuthController::class, 'me'])->name('auth.me');
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
+    Route::put('/auth/update-profile',   [AuthController::class, 'updateProfile'])->name('auth.update-profile');
 
     // ── Đơn hàng ───────────────────────────────────────────────────────────
     Route::get('/don-hang',      [DonHangController::class, 'index'])->name('donhang.index');
     Route::get('/don-hang/{id}', [DonHangController::class, 'show'])->name('donhang.show');
+    Route::put('/orders/{id}/cancel', [DonHangController::class, 'huyDonHang']);
     Route::post('/reviews',      [DanhGiaController::class, 'guiDanhGia']);
 
     // ── Wallet ─────────────────────────────────────────────────────────────
@@ -149,6 +164,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:NguoiBan')->group(function () {
         Route::get('/seller/dashboard', [DashboardController::class, 'sellerDashboard'])->name('seller.dashboard');
         Route::get('/seller/products',  [ProductController::class, 'sellerIndex'])->name('seller.products.index');
+        Route::get('/seller/wallet',    [ShopController::class, 'getWallet'])->name('seller.wallet');
+        Route::get('/seller/orders',    [ShopController::class, 'getOrders'])->name('seller.orders.index');
+        Route::put('/seller/orders/{id}/status', [ShopController::class, 'updateOrderStatus'])->name('seller.orders.update');
     });
 
     // ── Shop cá nhân ───────────────────────────────────────────────────────

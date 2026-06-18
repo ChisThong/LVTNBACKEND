@@ -47,8 +47,8 @@ class StoreProductRequest extends FormRequest
             // Tỉnh/thành: tuỳ chọn
             'ID_TinhThanh' => ['nullable', 'integer'],
 
-            // Hình ảnh: có thể upload nhiều ảnh
-            'hinh_anh'          => ['nullable', 'array'],
+            // Hình ảnh: có thể upload nhiều ảnh, giới hạn tối đa 5 ảnh
+            'hinh_anh'          => ['nullable', 'array', 'max:5'],
             'hinh_anh.*'        => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ];
     }
@@ -76,6 +76,7 @@ class StoreProductRequest extends FormRequest
 
             'TrangThai.in'         => 'Trạng thái chỉ được là 0 (ẩn) hoặc 1 (hiển thị).',
 
+            'hinh_anh.max'         => 'Chỉ được tải lên tối đa 5 hình ảnh.',
             'hinh_anh.*.image'     => 'File tải lên phải là hình ảnh.',
             'hinh_anh.*.mimes'     => 'Hình ảnh phải có định dạng: jpg, jpeg, png hoặc webp.',
             'hinh_anh.*.max'       => 'Mỗi hình ảnh không được vượt quá 5MB.',

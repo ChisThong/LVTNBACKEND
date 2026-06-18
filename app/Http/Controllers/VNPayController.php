@@ -340,30 +340,54 @@ class VNPayController extends Controller
 
         try {
             if ($isSuccess) {
-                // ── Kiểm tra bảo mật 3 & 4: Amount + Status trong confirmDeposit ──
-                // WalletService::confirmDeposit() tự kiểm tra:
-                //  - Giao dịch tồn tại (→ RspCode 01 nếu không)
-                //  - Amount khớp với DB (→ exception nếu sai)
-                //  - Status là 'pending' (idempotent nếu đã xử lý → return sớm)
-                $this->walletService->confirmDeposit('vnpay', $txnRef, $amount);
+                // Kiểm tra xem đây là Giao dịch Nạp Ví hay Thanh toán Đơn hàng
+                if (str_starts_with($txnRef, 'VNPAY')) {
+                    // Luồng 1: Nạp tiền vào ví
+                    $this->walletService->confirmDeposit('vnpay', $txnRef, $amount);
+                    Log::channel('vnpay')->info('[VNPayController][ipn] SUCCESS — Deposit confirmed', [
+                        'txnRef' => $txnRef, 'amount' => $amount
+                    ]);
+                } else {
+                    // Luồng 2: Thanh toán Đơn hàng (Checkout)
+                    // $txnRef chính là ID_DonHangTong
+                    $donHangTong = \App\Models\DonHangTong::find($txnRef);
+                    if (!$donHangTong) {
+                        return response()->json(['RspCode' => '01', 'Message' => 'Order Not Found']);
+                    }
 
-                Log::channel('vnpay')->info('[VNPayController][ipn] SUCCESS — Deposit confirmed', [
-                    'txnRef'       => $txnRef,
-                    'amount'       => $amount,
-                    'responseCode' => $responseCode,
-                    'transNo'      => $data['vnp_TransactionNo'] ?? 'N/A',
-                ]);
+                    // Cập nhật trạng thái thanh toán của Đơn Hàng Tổng
+                    $donHangTong->TrangThaiThanhToan = \App\Models\DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                    $donHangTong->save();
+
+                    // Ghi nhận vào bảng Thanh Toán
+                    \App\Models\ThanhToan::updateOrCreate(
+                        ['ID_DonHangTong' => $donHangTong->ID_DonHangTong],
+                        [
+                            'PhuongThuc'          => 'VNPAY',
+                            'code_GiaoDich'       => $txnRef,
+                            'VNPay_TransactionNo' => $data['vnp_TransactionNo'] ?? null,
+                            'SoTien'              => $amount,
+                            'TrangThai'           => 1, // Đã thanh toán
+                            'Date'                => now(),
+                        ]
+                    );
+
+                    Log::channel('vnpay')->info('[VNPayController][ipn] SUCCESS — Order Paid', [
+                        'ID_DonHangTong' => $txnRef, 'amount' => $amount
+                    ]);
+                }
 
                 // VNPay yêu cầu trả {"RspCode":"00","Message":"Confirm Success"}
                 return response()->json(['RspCode' => '00', 'Message' => 'Confirm Success']);
 
             } else {
-                // Thanh toán thất bại — đánh fail giao dịch
-                $this->walletService->failTransaction('vnpay', $txnRef);
-
-                Log::channel('vnpay')->info('[VNPayController][ipn] FAILED — Transaction marked failed', [
-                    'txnRef'       => $txnRef,
-                    'responseCode' => $responseCode,
+                if (str_starts_with($txnRef, 'VNPAY')) {
+                    // Đánh fail giao dịch nạp ví
+                    $this->walletService->failTransaction('vnpay', $txnRef);
+                }
+                
+                Log::channel('vnpay')->info('[VNPayController][ipn] FAILED — Transaction failed', [
+                    'txnRef' => $txnRef, 'responseCode' => $responseCode,
                 ]);
 
                 return response()->json(['RspCode' => '00', 'Message' => 'Confirm Success']);

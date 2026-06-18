@@ -37,9 +37,12 @@ class AdminProductController extends Controller
             $query->where('TrangThaiHienThi', $request->trang_thai_hien_thi);
         }
 
-        // Lọc theo ID gian hàng
+        // Lọc theo ID gian hàng (hỗ trợ cả ID_Shop hoặc id_shop)
         if ($request->filled('ID_Shop')) {
             $query->where('ID_Shop', $request->ID_Shop);
+        }
+        if ($request->filled('id_shop')) {
+            $query->where('ID_Shop', $request->input('id_shop'));
         }
 
         // Lọc theo danh mục

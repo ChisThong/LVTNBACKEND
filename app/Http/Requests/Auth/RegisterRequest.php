@@ -21,18 +21,17 @@ class RegisterRequest extends FormRequest
             'email'                => ['required', 'email:rfc,dns', 'max:100', 'unique:user,email'],
 
             // Mật khẩu: tối thiểu 6 ký tự, phải xác nhận
-//             'matkhau' => [
-//     'required',
-//     'string',
-//     'min:8',
-//     'max:50',
-//     'confirmed',
-//     'regex:/[a-z]/',
-//     'regex:/[A-Z]/',
-//     'regex:/[0-9]/',
-//     'regex:/[@$!%*#?&]/',
-// ],
-            'matkhau'              => ['required', 'string', 'min:6', 'confirmed'],
+            'matkhau' => [
+                'required',
+                'string',
+                'min:6',
+                'max:50',
+                'confirmed',
+                // 'regex:/[a-z]/',      // Ít nhất 1 chữ thường
+                // 'regex:/[A-Z]/',      // Ít nhất 1 chữ hoa
+                // 'regex:/[0-9]/',      // Ít nhất 1 số
+                // 'regex:/[@$!%*#?&]/', // Ít nhất 1 ký tự đặc biệt
+            ],
             'matkhau_confirmation' => ['required', 'string'],
 
             // Địa chỉ: tuỳ chọn
@@ -59,6 +58,7 @@ class RegisterRequest extends FormRequest
 
             'matkhau.required'             => 'Vui lòng nhập mật khẩu.',
             'matkhau.min'                  => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            // 'matkhau.regex'                => 'Mật khẩu phải chứa ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt (@$!%*#?&).',
             'matkhau.confirmed'            => 'Xác nhận mật khẩu không khớp.',
             'matkhau_confirmation.required'=> 'Vui lòng xác nhận mật khẩu.',
 

@@ -209,6 +209,130 @@ EmailVerification::create([
     }
 
     // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/forgot-password
+    // ──────────────────────────────────────────────────────────────────────
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email:rfc,dns|exists:user,email'
+        ], [
+            'email.exists' => 'Email không tồn tại trong hệ thống.'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+        $this->generateAndSendOtp($user);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã gửi mã OTP. Vui lòng kiểm tra email của bạn.',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/reset-password
+    // ──────────────────────────────────────────────────────────────────────
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'email' => 'required|email|exists:user,email',
+            'otp_code' => 'required|string',
+            'matkhau' => ['required', 'string', 'min:6', 'confirmed'],
+        ], [
+            'matkhau.min' => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            'matkhau.confirmed' => 'Xác nhận mật khẩu không khớp.'
+        ]);
+
+        $record = EmailVerification::where('email', $request->email)
+            ->where('otp_code', $request->otp_code)
+            ->where('is_used', false)
+            ->latest()
+            ->first();
+
+        if (! $record || $record->expires_at->isBefore(now())) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã OTP không đúng hoặc đã hết hạn.',
+            ], 422);
+        }
+
+        $record->update(['is_used' => true]);
+
+        $user = User::where('email', $request->email)->first();
+        $user->update([
+            'matkhau' => \Illuminate\Support\Facades\Hash::make($request->matkhau),
+            'TrangThai' => 1, // Active tài khoản luôn nếu họ chưa active
+        ]);
+
+        // Đổi pass xong logout tất cả thiết bị
+        $user->tokens()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đổi mật khẩu thành công. Bạn có thể đăng nhập ngay bây giờ.',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  POST /api/auth/change-password (Requires Auth)
+    // ──────────────────────────────────────────────────────────────────────
+    public function changePassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'old_password' => 'required|string',
+            'matkhau' => ['required', 'string', 'min:6', 'confirmed'],
+        ], [
+            'matkhau.min' => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            'matkhau.confirmed' => 'Xác nhận mật khẩu mới không khớp.'
+        ]);
+
+        $user = $request->user();
+
+        if (! \Illuminate\Support\Facades\Hash::check($request->old_password, $user->matkhau)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mật khẩu cũ không chính xác.',
+            ], 400);
+        }
+
+        $user->update([
+            'matkhau' => \Illuminate\Support\Facades\Hash::make($request->matkhau),
+        ]);
+
+        // Logout ra khỏi tất cả thiết bị để ép đăng nhập lại
+        $user->tokens()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    //  PUT /api/auth/update-profile (Requires Auth)
+    // ──────────────────────────────────────────────────────────────────────
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        $request->validate([
+            'HoTen' => 'required|string|min:3|max:100',
+            'sdt' => 'required|regex:/^[0-9]{10}$/|unique:user,sdt,' . $user->ID_User . ',ID_User',
+            'diachi' => 'nullable|string|max:255',
+        ], [
+            'sdt.regex' => 'Số điện thoại phải gồm đúng 10 chữ số.',
+            'sdt.unique' => 'Số điện thoại này đã được sử dụng.'
+        ]);
+
+        $user->update($request->only(['HoTen', 'sdt', 'diachi']));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cập nhật thông tin thành công.',
+            'data'    => $this->formatUser($user),
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
     //  Helper: format user JSON — không lộ matkhau
     // ──────────────────────────────────────────────────────────────────────
     private function formatUser(User $user): array
