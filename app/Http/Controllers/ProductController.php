@@ -96,6 +96,46 @@ class ProductController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/seller/products
+    // Middleware: auth:sanctum + role:NguoiBan
+    // Lấy tất cả sản phẩm của Shop hiện tại (kể cả ẩn, chờ duyệt)
+    // ─────────────────────────────────────────────────────────────────────────
+    public function sellerIndex(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $shop = Shop::where('ID_User', $user->ID_User)->first();
+
+        if (! $shop) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn chưa có gian hàng.',
+                'data'    => [],
+            ], 404);
+        }
+
+        $query = Product::with($this->with)
+            ->where('ID_Shop', $shop->ID_Shop);
+
+        if ($request->filled('search')) {
+            $query->where('TenSanPham', 'like', '%' . $request->search . '%');
+        }
+
+        $sortBy  = in_array($request->sort_by, ['Gia', 'TenSanPham', 'ID_SanPham'])
+                   ? $request->sort_by : 'ID_SanPham';
+        $sortDir = $request->sort_dir === 'asc' ? 'asc' : 'desc';
+        $query->orderBy($sortBy, $sortDir);
+
+        $perPage = (int) ($request->per_page ?? 100);
+        $products = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Danh sách sản phẩm của gian hàng.',
+            'data'    => $products,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // POST /api/products
     // Middleware: auth:sanctum + role:Admin,NguoiBan
     // ─────────────────────────────────────────────────────────────────────────

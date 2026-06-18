@@ -110,6 +110,12 @@ class ShopController extends Controller
             $data['baner'] = $request->file('baner')->store('shops/baner', 'public');
         }
 
+        // Nếu shop đang bị từ chối, cập nhật lại sẽ reset về chờ duyệt
+        if ($shop->TrangThaiDuyet === Shop::DUYET_TU_CHOI) {
+            $data['TrangThaiDuyet'] = Shop::DUYET_CHO;
+            $data['LyDoTuChoi'] = null;
+        }
+
         $shop->update($data);
 
         return response()->json([

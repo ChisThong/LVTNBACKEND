@@ -127,6 +127,12 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'vnpay' => [
+            'driver' => 'single',
+            'path'   => storage_path('logs/vnpay.log'),
+            'level'  => 'debug',
+            'replace_placeholders' => true,
+        ],
     ],
 
 ];

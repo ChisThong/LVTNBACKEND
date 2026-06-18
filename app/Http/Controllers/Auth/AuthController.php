@@ -232,6 +232,8 @@ EmailVerification::create([
                 'TenShop'        => $user->shop->TenShop,
                 'TrangThaiDuyet' => $user->shop->TrangThaiDuyet,
                 'TrangThai'      => $user->shop->TrangThai,
+                'TenNganHang'    => $user->shop->TenNganHang,
+                'SoTaiKhoang'    => $user->shop->SoTaiKhoang,
             ] : null,
         ];
     }

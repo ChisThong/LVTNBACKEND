@@ -92,6 +92,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Quan hệ: User có một ví điện tử.
+     */
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class, 'user_id', 'ID_User');
+    }
+
+    /**
      * Helper: kiểm tra role theo tên.
      */
     public function hasRole(string $roleName): bool
