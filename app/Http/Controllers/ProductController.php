@@ -70,6 +70,25 @@ class ProductController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/products/suggest
+    // Lấy 4 sản phẩm ngẫu nhiên gợi ý
+    // ─────────────────────────────────────────────────────────────────────────
+    public function getSuggestedProducts(Request $request): JsonResponse
+    {
+        $products = Product::with($this->with)
+            ->publiclyVisible() // TrangThaiDuyet=da_duyet + TrangThaiHienThi=hien + TrangThai=1
+            ->inRandomOrder()
+            ->take(4)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Sản phẩm gợi ý.',
+            'data'    => $products,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // GET /api/products/{id}
     // Public — mọi người đều xem được
     // ─────────────────────────────────────────────────────────────────────────
@@ -92,6 +111,46 @@ class ProductController extends Controller
             'success' => true,
             'message' => 'Chi tiết sản phẩm.',
             'data'    => $product,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GET /api/seller/products
+    // Middleware: auth:sanctum + role:NguoiBan
+    // Lấy tất cả sản phẩm của Shop hiện tại (kể cả ẩn, chờ duyệt)
+    // ─────────────────────────────────────────────────────────────────────────
+    public function sellerIndex(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $shop = Shop::where('ID_User', $user->ID_User)->first();
+
+        if (! $shop) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn chưa có gian hàng.',
+                'data'    => [],
+            ], 404);
+        }
+
+        $query = Product::with($this->with)
+            ->where('ID_Shop', $shop->ID_Shop);
+
+        if ($request->filled('search')) {
+            $query->where('TenSanPham', 'like', '%' . $request->search . '%');
+        }
+
+        $sortBy  = in_array($request->sort_by, ['Gia', 'TenSanPham', 'ID_SanPham'])
+                   ? $request->sort_by : 'ID_SanPham';
+        $sortDir = $request->sort_dir === 'asc' ? 'asc' : 'desc';
+        $query->orderBy($sortBy, $sortDir);
+
+        $perPage = (int) ($request->per_page ?? 100);
+        $products = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Danh sách sản phẩm của gian hàng.',
+            'data'    => $products,
         ]);
     }
 
@@ -150,70 +209,108 @@ class ProductController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     public function update(UpdateProductRequest $request, int $id): JsonResponse
     {
-        $product = Product::find($id);
+        try {
+            $product = Product::find($id);
 
-        if (! $product) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Sản phẩm không tồn tại.',
-                'data'    => null,
-            ], 404);
-        }
-
-        $user = $request->user();
-
-        // NguoiBan chỉ được sửa sản phẩm trong shop của mình
-        if ($user->role->Ten_role === 'NguoiBan') {
-            $shopBelongsToUser = Shop::where('ID_Shop', $product->ID_Shop)
-                ->where('ID_User', $user->ID_User)
-                ->exists();
-
-            if (! $shopBelongsToUser) {
+            if (! $product) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bạn không có quyền chỉnh sửa sản phẩm này.',
-                ], 403);
+                    'message' => 'Sản phẩm không tồn tại.',
+                    'data'    => null,
+                ], 404);
             }
-        }
 
-        $data = $request->safe()->except(['hinh_anh', 'xoa_hinh_anh']);
+            $user = $request->user();
 
-        // Nếu sản phẩm đang bị từ chối, cập nhật lại sẽ reset về chờ duyệt
-        if ($product->TrangThaiDuyet === Product::DUYET_TU_CHOI) {
-            $data['TrangThaiDuyet'] = Product::DUYET_CHO;
-            $data['LyDoTuChoi'] = null;
-        }
+            // NguoiBan chỉ được sửa sản phẩm trong shop của mình
+            // Admin có quyền sửa mọi sản phẩm
+            if ((int) $user->ID_role !== 1) { // 1 = Admin
+                $shopBelongsToUser = Shop::where('ID_Shop', $product->ID_Shop)
+                    ->where('ID_User', $user->ID_User)
+                    ->exists();
 
-        $product->update($data);
-
-        // Upload ảnh mới nếu có
-        if ($request->hasFile('hinh_anh')) {
-            foreach ($request->file('hinh_anh') as $file) {
-                $path = $file->store('products', 'public');
-                HinhAnh::create([
-                    'HinhAnh'    => $path,
-                    'ID_SanPham' => $product->ID_SanPham,
-                ]);
+                if (! $shopBelongsToUser) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Bạn không có quyền chỉnh sửa sản phẩm này.',
+                    ], 403);
+                }
             }
-        }
 
-        // Xoá ảnh theo danh sách ID nếu có
-        if ($request->filled('xoa_hinh_anh')) {
-            $hinhAnhToDelete = HinhAnh::whereIn('ID_HinhAnh', $request->xoa_hinh_anh)
-                ->where('ID_SanPham', $product->ID_SanPham)
-                ->get();
+            // Gán dữ liệu mới vào model (chưa lưu vào Database)
+            $data = $request->safe()->except(['hinh_anh', 'xoa_hinh_anh']);
+            $product->fill($data);
 
-            foreach ($hinhAnhToDelete as $ha) {
-                Storage::disk('public')->delete($ha->HinhAnh);
-                $ha->delete();
+            // Kiểm tra các trường nhạy cảm bị thay đổi (Bypass Approval Prevention)
+            if ((int) $user->ID_role !== 1) {
+                // Danh sách các trường nhạy cảm cần xét duyệt lại
+                $sensitiveFields = ['TenSanPham', 'MoTa', 'Gia'];
+                
+                // Trạng thái bắt buộc hạ cấp nếu:
+                // 1. Đang bị từ chối trước đó (sửa lại phải duyệt lại)
+                // 2. Bị thay đổi các trường nhạy cảm (isDirty)
+                // 3. Có upload ảnh mới hoặc xoá ảnh cũ
+                if ($product->TrangThaiDuyet === Product::DUYET_TU_CHOI || 
+                    $product->isDirty($sensitiveFields) || 
+                    $request->hasFile('hinh_anh') || 
+                    $request->filled('xoa_hinh_anh')
+                ) {
+                    $product->TrangThaiDuyet = Product::DUYET_CHO;
+                    $product->LyDoTuChoi = null;
+                    $product->NgayDuyet = null;
+                }
             }
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Cập nhật sản phẩm thành công.',
-            'data'    => $product->fresh($this->with),
-        ]);
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // Tiến hành lưu dữ liệu
+            $product->save();
+
+            // Upload ảnh mới nếu có
+            if ($request->hasFile('hinh_anh')) {
+                foreach ($request->file('hinh_anh') as $file) {
+                    $path = $file->store('products', 'public');
+                    HinhAnh::create([
+                        'HinhAnh'    => $path,
+                        'ID_SanPham' => $product->ID_SanPham,
+                    ]);
+                }
+            }
+
+            $pathsToDelete = [];
+
+            // Xoá ảnh theo danh sách ID nếu có
+            if ($request->filled('xoa_hinh_anh')) {
+                $hinhAnhToDelete = HinhAnh::whereIn('ID_HinhAnh', $request->xoa_hinh_anh)
+                    ->where('ID_SanPham', $product->ID_SanPham)
+                    ->get();
+
+                foreach ($hinhAnhToDelete as $ha) {
+                    $pathsToDelete[] = $ha->HinhAnh;
+                    $ha->delete();
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            // Chỉ xóa file vật lý SAU KHI commit thành công
+            if (!empty($pathsToDelete)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($pathsToDelete);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật sản phẩm thành công.',
+                'data'    => $product->fresh($this->with),
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────

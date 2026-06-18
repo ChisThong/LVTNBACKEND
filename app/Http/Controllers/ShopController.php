@@ -110,6 +110,12 @@ class ShopController extends Controller
             $data['baner'] = $request->file('baner')->store('shops/baner', 'public');
         }
 
+        // Nếu shop đang bị từ chối, cập nhật lại sẽ reset về chờ duyệt
+        if ($shop->TrangThaiDuyet === Shop::DUYET_TU_CHOI) {
+            $data['TrangThaiDuyet'] = Shop::DUYET_CHO;
+            $data['LyDoTuChoi'] = null;
+        }
+
         $shop->update($data);
 
         return response()->json([
@@ -326,5 +332,193 @@ class ShopController extends Controller
             'success' => true,
             'data'    => $shop,
         ]);
+    }
+
+    /**
+     * Lấy số dư ví của Shop (Dựa trên User đang đăng nhập)
+     * GET /api/seller/wallet
+     */
+    public function getWallet(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        // Lấy hoặc tạo ví cho người bán
+        $wallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $user->ID_User)->first();
+        
+        if (!$wallet) {
+            $walletId = \Illuminate\Support\Facades\DB::table('wallets')->insertGetId([
+                'user_id' => $user->ID_User,
+                'balance' => 0,
+                'frozen_balance' => 0,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            $wallet = \Illuminate\Support\Facades\DB::table('wallets')->where('id', $walletId)->first();
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'balance' => $wallet->balance,
+                'frozen_balance' => $wallet->frozen_balance
+            ]
+        ]);
+    }
+
+    /**
+     * Seller cập nhật trạng thái đơn hàng (Đồng bộ doanh thu)
+     * PUT /api/seller/orders/{id}/status
+     */
+    public function updateOrderStatus(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'TrangThai' => 'required|integer|in:0,1,2,3,4'
+        ]);
+
+        $user = $request->user();
+        $shop = Shop::where('ID_User', $user->ID_User)->first();
+
+        if (!$shop) {
+            return response()->json(['success' => false, 'message' => 'Bạn chưa có gian hàng.'], 403);
+        }
+
+        $newStatus = (int) $request->TrangThai;
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $donHang = \App\Models\DonHang::where('ID_DonHang', $id)
+                ->where('ID_Shop', $shop->ID_Shop)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$donHang) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy đơn hàng của bạn.'], 404);
+            }
+
+            // Nếu đơn đã hoàn tất thì không cập nhật lại tiền
+            if ($donHang->TrangThai == \App\Models\DonHang::TRANG_THAI_HOAN_TAT && $newStatus == \App\Models\DonHang::TRANG_THAI_HOAN_TAT) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['success' => false, 'message' => 'Đơn hàng đã được hoàn tất trước đó.'], 400);
+            }
+
+            $donHang->TrangThai = $newStatus;
+            $donHang->save();
+
+            // Cộng doanh thu khi đơn hàng HOÀN TẤT
+            if ($newStatus == \App\Models\DonHang::TRANG_THAI_HOAN_TAT) {
+                $tongThu = $donHang->TongGia + $donHang->PhiVanChuyen;
+                $commission = $tongThu * 0.05; // 5% Admin
+                $sellerAmount = $tongThu - $commission; // 95% Seller
+
+                // 1. Cộng ví Seller
+                $sellerWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $user->ID_User]);
+                $sellerWallet = \App\Models\Wallet::lockForUpdate()->find($sellerWallet->id);
+                
+                $beforeSeller = $sellerWallet->balance;
+                $sellerWallet->balance += $sellerAmount;
+                $sellerWallet->save();
+
+                \App\Models\WalletTransaction::create([
+                    'wallet_id'      => $sellerWallet->id,
+                    'type'           => 'revenue',
+                    'status'         => 'completed',
+                    'amount'         => $sellerAmount,
+                    'balance_before' => $beforeSeller,
+                    'balance_after'  => $sellerWallet->balance,
+                    'reference_type' => 'donhang_seller',
+                    'reference_id'   => $donHang->ID_DonHang,
+                    'description'    => 'Doanh thu từ đơn hàng #' . $donHang->MaDonHangCon
+                ]);
+
+                // 2. Cộng ví Admin (Sàn)
+                $adminUserId = 6; // Giả định ID admin là 6 theo AdminDonHangController
+                $adminWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $adminUserId]);
+                $adminWallet = \App\Models\Wallet::lockForUpdate()->find($adminWallet->id);
+                
+                $beforeAdmin = $adminWallet->balance;
+                $adminWallet->balance += $commission;
+                $adminWallet->save();
+
+                \App\Models\WalletTransaction::create([
+                    'wallet_id'      => $adminWallet->id,
+                    'type'           => 'commission',
+                    'status'         => 'completed',
+                    'amount'         => $commission,
+                    'balance_before' => $beforeAdmin,
+                    'balance_after'  => $adminWallet->balance,
+                    'reference_type' => 'donhang_admin',
+                    'reference_id'   => $donHang->ID_DonHang,
+                    'description'    => 'Hoa hồng 5% từ đơn hàng #' . $donHang->MaDonHangCon
+                ]);
+
+                // 3. Cập nhật bảng thanh toán nếu là đơn COD
+                $donHangTong = $donHang->donHangTong;
+                if ($donHangTong) {
+                    $thanhToan = \App\Models\ThanhToan::where('ID_DonHangTong', $donHangTong->ID_DonHangTong)
+                        ->where('PhuongThuc', 'COD')
+                        ->first();
+
+                    if ($thanhToan && $thanhToan->TrangThai == 0) {
+                        $thanhToan->TrangThai = 1; // Đã thanh toán
+                        $thanhToan->Date = now();
+                        $thanhToan->save();
+
+                        // Cập nhật luôn trạng thái ở Đơn Hàng Tổng
+                        $donHangTong->TrangThaiThanhToan = \App\Models\DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                        $donHangTong->save();
+                    }
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã cập nhật trạng thái đơn hàng.',
+                'data'    => $donHang
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Seller xem danh sách đơn hàng của Shop mình
+     * GET /api/seller/orders
+     */
+    public function getOrders(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $shop = Shop::where('ID_User', $user->ID_User)->first();
+
+            if (!$shop) {
+                return response()->json(['success' => false, 'message' => 'Bạn chưa có gian hàng.'], 403);
+            }
+
+            $donHangs = \App\Models\DonHang::with(['chiTiet.sanPham', 'donHangTong', 'nguoiMua'])
+                ->where('ID_Shop', $shop->ID_Shop)
+                ->orderBy('ID_DonHang', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data'    => $donHangs
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi khi tải danh sách đơn hàng',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 }

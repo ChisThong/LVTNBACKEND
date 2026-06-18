@@ -27,8 +27,8 @@ class UpdateProductRequest extends FormRequest
             'ID_PhanLoai'  => ['sometimes', 'integer', 'exists:phanloaisp,ID_PhanLoai'],
             'ID_TinhThanh' => ['nullable', 'integer'],
 
-            // Upload thêm ảnh
-            'hinh_anh'     => ['nullable', 'array'],
+            // Upload thêm ảnh (tối đa 5 ảnh một lần)
+            'hinh_anh'     => ['nullable', 'array', 'max:5'],
             'hinh_anh.*'   => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
 
             // Xoá ảnh theo ID
@@ -48,6 +48,7 @@ class UpdateProductRequest extends FormRequest
             'ID_Shop.exists'       => 'Shop không tồn tại trong hệ thống.',
             'ID_PhanLoai.exists'   => 'Phân loại sản phẩm không tồn tại.',
             'TrangThai.in'         => 'Trạng thái chỉ được là 0 (ẩn) hoặc 1 (hiển thị).',
+            'hinh_anh.max'         => 'Chỉ được tải lên tối đa 5 hình ảnh.',
             'hinh_anh.*.image'     => 'File tải lên phải là hình ảnh.',
             'hinh_anh.*.mimes'     => 'Hình ảnh phải có định dạng: jpg, jpeg, png hoặc webp.',
             'hinh_anh.*.max'       => 'Mỗi hình ảnh không được vượt quá 5MB.',
