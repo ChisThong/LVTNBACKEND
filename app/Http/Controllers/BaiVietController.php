@@ -23,6 +23,9 @@ class BaiVietController extends Controller
                     $keyword = mb_strtolower($request->search, 'UTF-8');
                     return $q->whereRaw('LOWER(tittel) like ?', ["%{$keyword}%"]);
                 })
+                ->when($request->has('LoaiTin'), function ($q) use ($request) {
+                    return $q->where('LoaiTin', $request->loai_tin);
+                })
                 ->orderByDesc('ID_Blog')
                 ->paginate(10);
 
@@ -81,7 +84,15 @@ class BaiVietController extends Controller
                 $data['hinhanh'] = $request->file('hinhanh')
                     ->store('blogs', 'public');
             }
-
+            if (!empty($data['video_url'])) {
+                $videoUrl = $data['video_url'];
+                if (preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/', $videoUrl, $matches)) {
+                    $youtubeId = $matches[1];
+                    $data['video_url'] = "https://www.youtube.com/embed/{$youtubeId}";
+                }
+            } else {
+                $data['video_url'] = null;
+            }
             $blog = Blog::create($data);
 
             return response()->json([
@@ -114,12 +125,23 @@ class BaiVietController extends Controller
 
             $data = $request->validated();
             $data['ID_User'] = Auth::id();
+            
             if ($request->hasFile('hinhanh')) {
                 if ($blog->hinhanh) {
                     Storage::disk('public')->delete($blog->hinhanh);
                 }
                 $data['hinhanh'] = $request->file('hinhanh')
                     ->store('blogs', 'public');
+            }
+
+            if (!empty($data['video_url'])) {
+                $videoUrl = $data['video_url'];
+                if (preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s]+)/', $videoUrl, $matches)) {
+                    $youtubeId = $matches[1];
+                    $data['video_url'] = "https://www.youtube.com/embed/{$youtubeId}";
+                }
+            } else {
+                $data['video_url'] = null; 
             }
 
             $blog->update($data);
@@ -138,7 +160,7 @@ class BaiVietController extends Controller
     }
 
     /**
-     * 5. Xóa bài viết
+     * 5. Xóa bài viết (Bổ sung logic xóa file ảnh trong storage khi xóa bài viết để đỡ rác server)
      */
     public function destroy(string $id): JsonResponse
     {
@@ -147,11 +169,50 @@ class BaiVietController extends Controller
             if (!$blog) {
                 return response()->json(['success' => false, 'message' => 'Không tìm thấy bài viết'], 404);
             }
-
+            if ($blog->hinhanh) {
+                Storage::disk('public')->delete($blog->hinhanh);
+            }
             $blog->delete();
             return response()->json(['success' => true, 'message' => 'Xóa thành công'], 200);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
+    public function getbaiviet(String $id)
+    {
+        try {
+            $baiviet = Blog::with('user:ID_User,HoTen')->where('ID_TinhThanh', $id)->get();
+            return response()->json([
+                'success' => true,
+                'data'    => $baiviet
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    public function getRandomBlogs()
+    {
+        $randomBlogs = Blog::where('LoaiTin',0)->inRandomOrder()
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $randomBlogs
+        ], 200);
+    }
+    public function getTinTuc(){
+         $randomBlogs = Blog::where('LoaiTin',1)->inRandomOrder()
+            ->take(5)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $randomBlogs
+        ], 200);
+    }
+
 }

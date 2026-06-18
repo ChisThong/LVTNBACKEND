@@ -16,7 +16,9 @@ class Blog extends Model
         'hinhanh',
         'ngaydang',
         'ID_User',
-        'ID_TinhThanh'
+        'ID_TinhThanh',
+        'LoaiTin',
+        'video_url'
     ];
 
     public function tinhThanh()
