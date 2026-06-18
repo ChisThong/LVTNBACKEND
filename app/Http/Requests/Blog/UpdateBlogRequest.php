@@ -28,7 +28,9 @@ class UpdateBlogRequest extends FormRequest
             'tomtat'        => 'nullable|string',
             'noidung'       => 'required|string',
             'hinhanh'       => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'ID_TinhThanh'  => 'required|integer'
+            'ID_TinhThanh'  => 'required|integer',
+            'LoaiTin'     => 'required|in:0,1',
+            'video_url'    => 'nullable|url|max:255',
         ];
     }
     public function messages():array
@@ -38,7 +40,11 @@ class UpdateBlogRequest extends FormRequest
             'noidung.required'      => 'Nội dung không được để trống.',
             'ID_TinhThanh.required' => 'Vui lòng chọn Tỉnh thành.',
             'hinhanh.image'         => 'File tải lên phải là hình ảnh.',
-            'hinhanh.max'           => 'Kích thước ảnh không được quá 2MB.'
+            'hinhanh.max'           => 'Kích thước ảnh không được quá 2MB.',
+            'LoaiTin.required'     => 'Vui lòng chọn loại tin tức (Sản vật hoặc Lễ hội).',
+            'LoaiTin.in'           => 'Loại tin tức không hợp lệ.',
+            'video_url.url'         => 'Đường dẫn video không đúng định dạng URL (ví dụ: https://youtube.com/...).',
+            'video_url.max'         => 'Đường dẫn video không được vượt quá 255 ký tự.',
         ];
     }
 }

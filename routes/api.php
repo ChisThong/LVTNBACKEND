@@ -45,6 +45,9 @@ Route::get('/products/{id}/reviews', [DanhGiaController::class, 'index']);
 Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
 Route::get('/xa', [DiaLyController::class, 'getXa']);
 Route::get('/ap', [DiaLyController::class, 'getAp']);
+Route::get('/Cauchuyensanvat/{id}',[BaiVietController::class,'getbaiviet']);
+Route::get('/randombaiviet',[BaiVietController::class,'getRandomBlogs']);
+Route::get('/tintuc',[BaiVietController::class,'getTinTuc']);
 
 // ── Shop — Public ──────────────────────────────────────────────
 Route::get('/shops/{id}', [ShopController::class, 'publicShow']);

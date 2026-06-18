@@ -15,6 +15,8 @@ class TinhThanh extends Model
 
     protected $fillable = [
         'TenTinhThanh',
+        'HinhAnh',
+        'MoTa'
     ];
 
     // 2. Các hàm liên kết dữ liệu (Relationships) nằm ở dưới này
