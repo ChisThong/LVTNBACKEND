@@ -59,11 +59,12 @@ Route::get('/products/suggest', [ProductController::class, 'getSuggestedProducts
 Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}/reviews', [DanhGiaController::class, 'index']);
 Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
-Route::get('/xa',         [DiaLyController::class, 'getXa']);
-Route::get('/ap',         [DiaLyController::class, 'getAp']);
-Route::get('/Cauchuyensanvat/{id}', [BaiVietController::class, 'getbaiviet']);
-Route::get('/randombaiviet',        [BaiVietController::class, 'getRandomBlogs']);
-Route::get('/tintuc',               [BaiVietController::class, 'getTinTuc']);
+Route::get('/xa', [DiaLyController::class, 'getXa']);
+Route::get('/ap', [DiaLyController::class, 'getAp']);
+Route::get('/Cauchuyensanvat/{id}',[BaiVietController::class,'getbaiviet']);
+Route::get('/randombaiviet',[BaiVietController::class,'getRandomBlogs']);
+Route::get('/tintuc',[BaiVietController::class,'getTinTuc']);
+Route::get('/bando', [VungMienController::class, 'index']);
 
 // ── Shop — Public ──────────────────────────────────────────────────────────
 Route::get('/shops/{id}', [ShopController::class, 'publicShow']);

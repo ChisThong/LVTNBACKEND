@@ -22,4 +22,9 @@ class Map extends Model
         'ID_Xa',
         'ID_Ap',
         ];
+
+    public function tinhThanh()
+    {
+        return $this->belongsTo(TinhThanh::class, 'ID_TinhThanh', 'ID_TinhThanh');
+    }
 }

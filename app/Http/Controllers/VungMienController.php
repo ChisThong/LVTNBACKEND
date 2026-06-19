@@ -15,7 +15,7 @@ class VungMienController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Map::query();
+            $query = Map::with('tinhThanh');
 
             if ($request->filled('ID_Ap')) {
                 $query->where('ID_ap', $request->ID_Ap);
@@ -28,7 +28,12 @@ class VungMienController extends Controller
             $query->when($request->filled('search_map'), function ($search) use ($request) {
                 $search->where('TenDacSan', 'like', '%' . $request->search_map . '%');
             });
-            $data = $query->orderby('id', 'desc')->paginate(10);
+
+            if ($request->boolean('all', false) || $request->input('all') == '1') {
+                $data = $query->orderby('id', 'desc')->get();
+            } else {
+                $data = $query->orderby('id', 'desc')->paginate(10);
+            }
 
             return response()->json([
                 'success' => true,
