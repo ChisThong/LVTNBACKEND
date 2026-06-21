@@ -200,7 +200,8 @@ EmailVerification::create([
     // ──────────────────────────────────────────────────────────────────────
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['role', 'shop']);
+        // Eager load role, shop, wallet trong 1 lần truy vấn — tối ưu qua ngrok
+        $user = $request->user()->load(['role', 'shop', 'wallet']);
 
         return response()->json([
             'success' => true,
@@ -337,7 +338,7 @@ EmailVerification::create([
     // ──────────────────────────────────────────────────────────────────────
     private function formatUser(User $user): array
     {
-        $user->loadMissing(['role', 'shop']);
+        $user->loadMissing(['role', 'shop', 'wallet']);
 
         return [
             'ID_User'    => $user->ID_User,
@@ -358,6 +359,11 @@ EmailVerification::create([
                 'TrangThai'      => $user->shop->TrangThai,
                 'TenNganHang'    => $user->shop->TenNganHang,
                 'SoTaiKhoang'    => $user->shop->SoTaiKhoang,
+            ] : null,
+            'wallet'     => $user->wallet ? [
+                'id'             => $user->wallet->id,
+                'balance'        => $user->wallet->balance,
+                'frozen_balance' => $user->wallet->frozen_balance,
             ] : null,
         ];
     }
