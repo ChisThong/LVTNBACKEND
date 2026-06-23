@@ -10,6 +10,8 @@ use App\Models\Shop;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Intervention\Image\Laravel\Facades\Image;
 
 class ProductController extends Controller
 {
@@ -188,7 +190,7 @@ class ProductController extends Controller
         // Upload hình ảnh nếu có
         if ($request->hasFile('hinh_anh')) {
             foreach ($request->file('hinh_anh') as $file) {
-                $path = $file->store('products', 'public');
+                $path = $this->uploadAndConvertImage($file);
                 HinhAnh::create([
                     'HinhAnh'    => $path,
                     'ID_SanPham' => $product->ID_SanPham,
@@ -269,7 +271,7 @@ class ProductController extends Controller
             // Upload ảnh mới nếu có
             if ($request->hasFile('hinh_anh')) {
                 foreach ($request->file('hinh_anh') as $file) {
-                    $path = $file->store('products', 'public');
+                    $path = $this->uploadAndConvertImage($file);
                     HinhAnh::create([
                         'HinhAnh'    => $path,
                         'ID_SanPham' => $product->ID_SanPham,
@@ -363,5 +365,32 @@ class ProductController extends Controller
             'message' => 'Sản phẩm đã được ngừng bán thành công.',
             'data'    => $product->fresh($this->with),
         ]);
+    }
+
+    /**
+     * Tối ưu và lưu hình ảnh sản phẩm dưới định dạng WebP.
+     */
+    private function uploadAndConvertImage($file): string
+    {
+        try {
+            $fileName = time() . '_' . uniqid() . '.webp';
+            
+            // Read image from temporary upload path
+            $image = Image::read($file);
+            
+            // Scale down to max width 800px
+            $image->scaleDown(width: 800);
+            
+            // Convert to WebP with 80% quality
+            $webpContent = $image->toWebp(80);
+            
+            // Save to public storage disk under products folder
+            Storage::disk('public')->put('products/' . $fileName, (string) $webpContent);
+            
+            return 'products/' . $fileName;
+        } catch (\Exception $e) {
+            Log::error('Intervention Image upload failed, falling back to default store: ' . $e->getMessage());
+            return $file->store('products', 'public');
+        }
     }
 }
