@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +26,7 @@ class NguoiDungController extends Controller
                              ->orWhere('sdt', 'like', $searchTerm);
                 });
             }
-            $data=$query->orderby('ID_User','asc')->paginate(10);
+            $data=$query->with('role')->orderBy('ID_User','asc')->paginate(10);
             $countAdmin=User::where('ID_role',1)->count();
             $countSeller=User::where('ID_role',3)->count();
             $countclock=User::where('TrangThai',2)->count();
@@ -69,15 +70,15 @@ class NguoiDungController extends Controller
             ],500);
         }
     }
-    public function update(Request $request,String $id){
+    public function capquyenadmin(String $id){
      try{
             $user=User::findOrFail($id);
-            $user->ID_role=$request->ID_role;
+            $user->ID_role=1;
             $user->save();
            
             return response()->json([
                 'success'=>true,
-                'message'=>'Cập nhật thành công'
+                'message'=>'Cấp quyền admin thành công'
             ],200);
         }catch(\Exception $e){
             return response()->json([

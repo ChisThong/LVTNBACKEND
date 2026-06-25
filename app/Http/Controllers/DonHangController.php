@@ -227,7 +227,7 @@ class DonHangController extends Controller
     public function index(Request $request): JsonResponse
     {
         // Lấy theo đơn hàng tổng để đúng cấu trúc hiển thị đa gian hàng
-        $donHangTong = DonHangTong::with('donHangs.shop', 'donHangs.chiTiet.sanPham.hinhAnh')
+        $donHangTong = DonHangTong::with('donHangs.shop', 'donHangs.chiTiet.sanPham.hinhAnh', 'donHangs.chiTiet.danhGia')
             ->where('ID_User', $request->user()->ID_User)
             ->orderByDesc('ID_DonHangTong')
             ->paginate(10);
@@ -244,7 +244,7 @@ class DonHangController extends Controller
      */
     public function show(Request $request, int $id): JsonResponse
     {
-        $donHangTong = DonHangTong::with('donHangs.shop', 'donHangs.chiTiet.sanPham.hinhAnh')
+        $donHangTong = DonHangTong::with('donHangs.shop', 'donHangs.chiTiet.sanPham.hinhAnh', 'donHangs.chiTiet.danhGia')
             ->where('ID_DonHangTong', $id)
             ->where('ID_User', $request->user()->ID_User)
             ->firstOrFail();
@@ -330,7 +330,7 @@ class DonHangController extends Controller
 
                     foreach ($chiTiets as $chiTiet) {
                         // Hoàn lại tồn kho cho từng sản phẩm
-                        $product = SanPham::find($chiTiet->ID_SanPham);
+                        $product = Product::find($chiTiet->ID_SanPham);
                         if ($product) {
                             $product->increment('SoLuongTon', $chiTiet->SoLuong);
                         }
@@ -398,7 +398,7 @@ class DonHangController extends Controller
             // 4. Hoàn tồn kho
             $chiTiets = DB::table('chitietdonhang')->where('ID_DonHang', $donHang->ID_DonHang)->get();
             foreach ($chiTiets as $chiTiet) {
-                $product = SanPham::find($chiTiet->ID_SanPham);
+                $product = Product::find($chiTiet->ID_SanPham);
                 if ($product) {
                     $product->increment('SoLuongTon', $chiTiet->SoLuong);
                 }

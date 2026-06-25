@@ -46,7 +46,7 @@ Route::prefix('auth')->group(function () {
     Route::middleware('throttle:5,1')->group(function () {
         Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
         Route::post('/resend-otp', [AuthController::class, 'resendOtp'])->name('auth.resend-otp');
-        
+
         // Sẵn sàng cho API Quên mật khẩu
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot-password');
         Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->name('auth.reset-password');
@@ -61,10 +61,13 @@ Route::get('/products/{id}/reviews', [DanhGiaController::class, 'index']);
 Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
 Route::get('/xa', [DiaLyController::class, 'getXa']);
 Route::get('/ap', [DiaLyController::class, 'getAp']);
-Route::get('/Cauchuyensanvat/{id}',[BaiVietController::class,'getbaiviet']);
-Route::get('/randombaiviet',[BaiVietController::class,'getRandomBlogs']);
-Route::get('/tintuc',[BaiVietController::class,'getTinTuc']);
+Route::get('/Cauchuyensanvat/{id}', [BaiVietController::class, 'getbaiviet']);
+Route::get('/randombaiviet', [BaiVietController::class, 'getRandomBlogs']);
+Route::get('/tintuc', [BaiVietController::class, 'getTinTuc']);
 Route::get('/bando', [VungMienController::class, 'index']);
+
+//test
+
 
 // ── Shop — Public ──────────────────────────────────────────────────────────
 Route::get('/shops/{id}', [ShopController::class, 'publicShow']);
@@ -93,7 +96,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/don-hang',      [DonHangController::class, 'index'])->name('donhang.index');
     Route::get('/don-hang/{id}', [DonHangController::class, 'show'])->name('donhang.show');
     Route::put('/orders/{id}/cancel', [DonHangController::class, 'huyDonHang']);
-    Route::post('/reviews',      [DanhGiaController::class, 'guiDanhGia']);
+    Route::post('/danh-gia',      [DanhGiaController::class, 'guiDanhGia']);
 
     // ── Wallet ─────────────────────────────────────────────────────────────
     Route::get('/wallet',              [WalletController::class, 'index'])->name('wallet.index');
@@ -129,7 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/BlogControl',         [BaiVietController::class, 'index']);
         Route::post('/BlogControl',        [BaiVietController::class, 'store']);
         Route::delete('/BlogControl/{id}', [BaiVietController::class, 'destroy']);
-        Route::get('/BlogControl/{id}',    [BaiVietController::class, 'show']);
+        // Route::get('/BlogControl/{id}',    [BaiVietController::class, 'show']);
         Route::put('/BlogControl/{id}',    [BaiVietController::class, 'update']);
 
         // ── Quản lý Map ─────────────────────────────────────────────────────
@@ -141,7 +144,7 @@ Route::middleware('auth:sanctum')->group(function () {
         // Quản lý người dùng
         Route::get('/Nguoidung',                    [NguoiDungController::class, 'index']);
         Route::put('/Nguoidung/{id}/ChangeClock',   [NguoiDungController::class, 'changeclock']);
-        Route::put('/Nguoidung/{id}',               [NguoiDungController::class, 'update']);
+        Route::put('/Nguoidung/capquyen/{id}',               [NguoiDungController::class, 'capquyenadmin']);
 
         // Wallet Admin
         Route::get('/wallet/stats',               [AdminWalletController::class, 'stats']);
@@ -150,7 +153,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Quản lý đơn hàng
         Route::get('/DonHang',     [AdminDonHangController::class, 'index']);
-        Route::get('/DonHang/{id}',[AdminDonHangController::class, 'chitiet']);
+        Route::get('/DonHang/{id}', [AdminDonHangController::class, 'chitiet']);
     });
 
     // ── Admin hoặc NguoiBan — CRUD sản phẩm ───────────────────────────────
@@ -158,7 +161,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/products',           [ProductController::class, 'store'])->name('products.store');
         Route::put('/products/{id}',       [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{id}',    [ProductController::class, 'destroy'])->name('products.destroy');
-        Route::post('/reviews/{id}/reply', [DanhGiaController::class, 'phanhoi']);
     });
 
     // ── NguoiBan only ──────────────────────────────────────────────────────
@@ -168,6 +170,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/seller/wallet',    [ShopController::class, 'getWallet'])->name('seller.wallet');
         Route::get('/seller/orders',    [ShopController::class, 'getOrders'])->name('seller.orders.index');
         Route::put('/seller/orders/{id}/status', [ShopController::class, 'updateOrderStatus'])->name('seller.orders.update');
+
+        //Dánh Giá
+        Route::get('/seller/{idShop}/danh-gia', [DanhGiaController::class, 'layDanhGiaTheoShop']);
+        Route::post('/seller/danh-gia/{id}', [DanhGiaController::class, 'phanhoi']);
     });
 
     // ── Shop cá nhân ───────────────────────────────────────────────────────
