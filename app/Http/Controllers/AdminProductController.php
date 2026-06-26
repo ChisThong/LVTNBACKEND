@@ -209,6 +209,15 @@ class AdminProductController extends Controller
             'LyDoTuChoi' => null
         ]);
 
+        $activityData = [
+            'id_target' => $product->ID_SanPham,
+            'tieude' => "Sản phẩm \"" . $product->TenSanPham . "\" đã được duyệt.",
+            'thoigian' => now()->toDateTimeString(),
+            'trangthai' => 'Mới',
+            'type' => 'product'
+        ];
+        event(new \App\Events\SellerActivityEvent($activityData, $product->ID_Shop));
+
         return response()->json([
             'success' => true,
             'message' => 'Đã duyệt sản phẩm thành công.',
@@ -236,6 +245,15 @@ class AdminProductController extends Controller
             'TrangThaiDuyet' => Product::DUYET_TU_CHOI,
             'LyDoTuChoi' => $lyDo
         ]);
+
+        $activityData = [
+            'id_target' => $product->ID_SanPham,
+            'tieude' => "Sản phẩm \"" . $product->TenSanPham . "\" bị từ chối duyệt. Lý do: " . $lyDo,
+            'thoigian' => now()->toDateTimeString(),
+            'trangthai' => 'Mới',
+            'type' => 'product'
+        ];
+        event(new \App\Events\SellerActivityEvent($activityData, $product->ID_Shop));
 
         return response()->json([
             'success' => true,

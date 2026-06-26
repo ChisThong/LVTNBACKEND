@@ -17,6 +17,7 @@ use App\Http\Controllers\WalletController;
 use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\AdminWalletController;
 use App\Http\Controllers\DanhGiaController;
+use App\Http\Controllers\ThongKeController;
 
 /*
 |--------------------------------------------------------------------------
@@ -67,10 +68,29 @@ Route::get('/tintuc', [BaiVietController::class, 'getTinTuc']);
 Route::get('/bando', [VungMienController::class, 'index']);
 
 //test
+Route::get('/test-pusher', function(\Illuminate\Http\Request $request) {
+    $activityData = [
+        'id_target' => 999,
+        'tieude' => $request->input('tieude', "Đang test thử kết nối Pusher từ Laravel!"),
+        'thoigian' => now()->toDateTimeString(),
+        'trangthai' => 'Mới',
+        'type' => $request->input('type', 'user')
+    ];
+    
+    $shopId = 1;
+    if ($shopId) {
+        event(new \App\Events\SellerActivityEvent($activityData, $shopId));
+        return "Đã bắn tín hiệu test SellerActivityEvent lên shop_id: " . $shopId;
+    }
+    
+    event(new \App\Events\AdminActivityEvent($activityData));
+    return "Đã bắn tín hiệu test AdminActivityEvent!";
+});
 
 
 // ── Shop — Public ──────────────────────────────────────────────────────────
 Route::get('/shops/{id}', [ShopController::class, 'publicShow']);
+Route::get('/shops/{idShop}/reviews', [DanhGiaController::class, 'layDanhGiaTheoShop']);
 
 // ── Phân loại — Public ────────────────────────────────────────────────────
 Route::get('/phan-loai',      [PhanLoaiController::class, 'index'])->name('phanloai.index');
@@ -154,6 +174,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Quản lý đơn hàng
         Route::get('/DonHang',     [AdminDonHangController::class, 'index']);
         Route::get('/DonHang/{id}', [AdminDonHangController::class, 'chitiet']);
+        //Báo Cáo Thống Kê
+        Route::get('/baocao/thongkedoanhthu',[ThongKeController::class,'AdminThongKeDanhThu']);
     });
 
     // ── Admin hoặc NguoiBan — CRUD sản phẩm ───────────────────────────────
@@ -174,6 +196,9 @@ Route::middleware('auth:sanctum')->group(function () {
         //Dánh Giá
         Route::get('/seller/{idShop}/danh-gia', [DanhGiaController::class, 'layDanhGiaTheoShop']);
         Route::post('/seller/danh-gia/{id}', [DanhGiaController::class, 'phanhoi']);
+
+        //Báo Cáo Thống Kê
+        Route::get('/seller/baocao/thongkedoanhthu', [ThongKeController::class, 'SellerThongKeDanhThu']);
     });
 
     // ── Shop cá nhân ───────────────────────────────────────────────────────
@@ -186,4 +211,5 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/buyer/dashboard', [DashboardController::class, 'buyerDashboard'])->name('buyer.dashboard');
         Route::post('/don-hang',       [DonHangController::class, 'store'])->name('donhang.store');
     });
+
 });

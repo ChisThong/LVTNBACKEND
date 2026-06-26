@@ -104,6 +104,7 @@ class DonHangController extends Controller
                 'TrangThaiThanhToan'  => $phuongThuc === 'WALLET' ? DonHangTong::THANH_TOAN_DA_THANH_TOAN : DonHangTong::THANH_TOAN_CHUA_THANH_TOAN,
                 'Ngaydat'             => now(),
             ]);
+            
 
             // ── 5. Gom nhóm sản phẩm theo Shop (Group by ID_Shop) ──────────────
             $itemsByShop = [];
@@ -120,6 +121,7 @@ class DonHangController extends Controller
             }
 
             // ── 6. Lặp qua từng nhóm Shop để tạo đơn con và chi tiết ──────────
+            $createdSubOrders = [];
             foreach ($itemsByShop as $shopId => $items) {
                 $tongTienShop = 0;
                 foreach ($items as $item) {
@@ -138,6 +140,7 @@ class DonHangController extends Controller
                     'MaVanDon'       => null,
                     'date'           => now(),
                 ]);
+                $createdSubOrders[] = $donHangCon;
 
                 // Tạo ChiTietDonHang và Trừ Kho
                 foreach ($items as $item) {
@@ -183,6 +186,19 @@ class DonHangController extends Controller
                 }
                 
                 DB::commit();
+
+                //thong báo
+                foreach ($createdSubOrders as $subOrder) {
+                    $activityData = [
+                        'id_target' => $subOrder->ID_DonHang,
+                        'tieude' => "Bạn có một đơn hàng mới #" . $subOrder->MaDonHangCon . " đang chờ xác nhận.",
+                        'thoigian' => now()->toDateTimeString(),
+                        'trangthai' => 'Mới',
+                        'type' => 'order'
+                    ];
+                    event(new \App\Events\SellerActivityEvent($activityData, $subOrder->ID_Shop));
+                }
+
                 return response()->json([
                     'success'   => true,
                     'message'   => 'Tạo đơn hàng thành công, đang chuyển hướng VNPay...',
@@ -203,6 +219,18 @@ class DonHangController extends Controller
 
             // Nếu là WALLET hoặc COD thì không cần chuyển hướng VNPay
             DB::commit();
+
+            // Dispatch real-time notification events
+            foreach ($createdSubOrders as $subOrder) {
+                $activityData = [
+                    'id_target' => $subOrder->ID_DonHang,
+                    'tieude' => "Bạn có một đơn hàng mới #" . $subOrder->MaDonHangCon . " đang chờ xác nhận.",
+                    'thoigian' => now()->toDateTimeString(),
+                    'trangthai' => 'Mới',
+                    'type' => 'order'
+                ];
+                event(new \App\Events\SellerActivityEvent($activityData, $subOrder->ID_Shop));
+            }
 
             return response()->json([
                 'success'   => true,
@@ -430,6 +458,15 @@ class DonHangController extends Controller
             }
 
             DB::commit();
+
+            $activityData = [
+                'id_target' => $donHang->ID_DonHang,
+                'tieude' => "Đơn hàng #" . $donHang->MaDonHangCon . " đã bị khách hàng hủy.",
+                'thoigian' => now()->toDateTimeString(),
+                'trangthai' => 'Mới',
+                'type' => 'order'
+            ];
+            event(new \App\Events\SellerActivityEvent($activityData, $donHang->ID_Shop));
 
             return response()->json([
                 'success' => true,

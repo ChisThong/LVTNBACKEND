@@ -6,6 +6,7 @@ use App\Models\DanhGia;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\PhanHoiDanhGia;
+use App\Events\SellerActivityEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -93,6 +94,26 @@ class DanhGiaController extends Controller
                 'BinhLuan'    => $request->input('BinhLuan'),
                 'HinhAnh'     => $pathHinhAnh,
             ]);
+
+            // Dispatch notification to Seller
+            try {
+                $danhGiaMoi->load('sanPham');
+                $idShop = $danhGiaMoi->sanPham->ID_Shop ?? null;
+                if ($idShop) {
+                    $buyerName = Auth::user()->HoTen ?? Auth::user()->name ?? 'Khách hàng';
+                    $tenSp = $danhGiaMoi->sanPham->TenSanPham ?? 'sản phẩm';
+                    $activityData = [
+                        'id_target' => $danhGiaMoi->ID_DanhGia,
+                        'tieude' => "Khách hàng {$buyerName} đã gửi đánh giá {$danhGiaMoi->XepLoai} sao cho \"{$tenSp}\"!",
+                        'thoigian' => now()->toDateTimeString(),
+                        'trangthai' => 'Mới',
+                        'type' => 'review'
+                    ];
+                    event(new SellerActivityEvent($activityData, $idShop));
+                }
+            } catch (Exception $e) {
+                logger()->error('Failed to send review notification: ' . $e->getMessage());
+            }
 
             return response()->json([
                 'success' => true,

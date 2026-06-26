@@ -75,4 +75,29 @@ class Shop extends Model
     {
         return $this->TrangThaiDuyet === self::DUYET_CHO;
     }
+
+    /**
+     * Scope: lọc theo khoảng thời gian đăng ký shop.
+     */
+    public function scopeBetweenDate($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('NgayDangKy', [$startDate, $endDate]);
+    }
+
+    /**
+     * Relation: Một shop có nhiều chi tiết đơn hàng thông qua sản phẩm của shop đó.
+     */
+    public function chiTietDonHang()
+    {
+        return $this->hasManyThrough(
+            ChiTietDonHang::class,
+            Product::class,
+            'ID_Shop',
+            'ID_SanPham',
+            'ID_Shop',
+            'ID_SanPham'
+        );
+    }
 }
+
+
