@@ -11,7 +11,7 @@ class AdminDonHangController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = DonHang::with(['donHangTong.user', 'shop', 'chiTiet.sanPham']);
+            $query = DonHang::with(['donHangTong.user', 'shop', 'chiTiet.sanPham.hinhAnh']);
             if ($request->filled('search')) {
                 $search = $request->input('search');
 
@@ -62,7 +62,7 @@ class AdminDonHangController extends Controller
     public function chitiet(string $id): JsonResponse
     {
         try {
-            $donHang = DonHang::with(['donHangTong.user', 'shop', 'chiTiet.sanPham'])
+            $donHang = DonHang::with(['donHangTong.user', 'shop', 'chiTiet.sanPham.hinhAnh'])
                 ->find((int) $id);
             if (!$donHang) {
                 return response()->json([
