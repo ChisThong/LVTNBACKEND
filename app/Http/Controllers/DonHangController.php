@@ -482,4 +482,133 @@ class DonHangController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Người mua xác nhận đã nhận được hàng.
+     * PUT /api/don-hang/{id}/confirm-received
+     *
+     * Logic:
+     *  - Đơn phải đang ở trạng thái 2 (Đang giao).
+     *  - Chuyển sang 3 (Hoàn tất).
+     *  - Chia tiền tự động: 95% → Ví Seller, 5% → Ví Admin (hoa hồng sàn).
+     */
+    public function xacNhanNhanHang(Request $request, $idDonHang): JsonResponse
+    {
+        $user = $request->user();
+
+        try {
+            DB::beginTransaction();
+
+            // 1. Tìm và khóa đơn hàng con (chống race condition)
+            $donHang = DonHang::with(['shop', 'donHangTong'])
+                ->where('ID_DonHang', $idDonHang)
+                ->where('ID_User', $user->ID_User)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$donHang) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy đơn hàng.'
+                ], 404);
+            }
+
+            // 2. Chỉ cho phép xác nhận khi đơn đang ở trạng thái "Đang giao" (2)
+            if ($donHang->TrangThai !== DonHang::TRANG_THAI_DANG_GIAO) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Chỉ có thể xác nhận khi đơn hàng đang ở trạng thái "Đang giao".'
+                ], 400);
+            }
+
+            // 3. Chuyển trạng thái sang Hoàn tất (3)
+            $donHang->TrangThai = DonHang::TRANG_THAI_HOAN_TAT;
+            $donHang->save();
+
+            // ── 4. KÍCH HOẠT LUỒNG CHIA TIỀN TỰ ĐỘNG ──────────────────────────
+            $tongGia    = $donHang->TongGia + $donHang->PhiVanChuyen;
+            $commission = $tongGia * 0.05;       // 5%  → Admin (hoa hồng sàn)
+            $sellerAmt  = $tongGia - $commission; // 95% → Seller
+
+            $adminUserId  = 6; // ID Admin cố định (đồng bộ với AdminDonHangController)
+            $sellerUserId = $donHang->shop?->ID_User;
+
+            if ($sellerUserId) {
+                // 4a. Cộng 95% vào Ví Seller
+                $sellerWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $sellerUserId]);
+                $sellerWallet = \App\Models\Wallet::lockForUpdate()->find($sellerWallet->id);
+
+                $beforeSeller = $sellerWallet->balance;
+                $sellerWallet->balance += $sellerAmt;
+                $sellerWallet->save();
+
+                \App\Models\WalletTransaction::create([
+                    'wallet_id'      => $sellerWallet->id,
+                    'type'           => 'revenue',
+                    'status'         => 'completed',
+                    'amount'         => $sellerAmt,
+                    'balance_before' => $beforeSeller,
+                    'balance_after'  => $sellerWallet->balance,
+                    'reference_type' => 'donhang_seller',
+                    'reference_id'   => $donHang->ID_DonHang,
+                    'description'    => 'Doanh thu từ đơn hàng #' . $donHang->MaDonHangCon . ' (Người mua xác nhận)',
+                ]);
+            }
+
+            // 4b. Cộng 5% hoa hồng vào Ví Admin
+            $adminWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $adminUserId]);
+            $adminWallet = \App\Models\Wallet::lockForUpdate()->find($adminWallet->id);
+
+            $beforeAdmin = $adminWallet->balance;
+            $adminWallet->balance += $commission;
+            $adminWallet->save();
+
+            \App\Models\WalletTransaction::create([
+                'wallet_id'      => $adminWallet->id,
+                'type'           => 'commission',
+                'status'         => 'completed',
+                'amount'         => $commission,
+                'balance_before' => $beforeAdmin,
+                'balance_after'  => $adminWallet->balance,
+                'reference_type' => 'donhang_admin',
+                'reference_id'   => $donHang->ID_DonHang,
+                'description'    => 'Hoa hồng 5% từ đơn hàng #' . $donHang->MaDonHangCon,
+            ]);
+
+            // 4c. Nếu là COD: cập nhật trạng thái thanh toán → Đã thanh toán
+            $donHangTong = $donHang->donHangTong;
+            if ($donHangTong) {
+                $thanhToan = \App\Models\ThanhToan::where('ID_DonHangTong', $donHangTong->ID_DonHangTong)
+                    ->where('PhuongThuc', 'COD')
+                    ->first();
+
+                if ($thanhToan && $thanhToan->TrangThai == 0) {
+                    $thanhToan->TrangThai = 1; // Đã thanh toán
+                    $thanhToan->Date = now();
+                    $thanhToan->save();
+
+                    $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                    $donHangTong->save();
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Xác nhận nhận hàng thành công! Cảm ơn bạn đã mua sắm.',
+                'data'    => $donHang->fresh(),
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Có lỗi xảy ra khi xác nhận nhận hàng.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
 }

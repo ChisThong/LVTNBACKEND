@@ -24,10 +24,10 @@ use App\Http\Controllers\ThongKeController;
 | API Routes — Marketplace Đặc Sản Miền Nam
 |--------------------------------------------------------------------------
 |
-| Prefix:  /api
-| Auth:    Laravel Sanctum (Bearer Token)
-| Roles:   Admin(1) | NguoiMua(2) | NguoiBan(3)
-| Payment: VNPay Sandbox
+| Prefix:   /api
+| Auth:     Laravel Sanctum (Bearer Token)
+| Roles:    Admin(1) | NguoiMua(2) | NguoiBan(3)
+| Payment:  VNPay Sandbox
 |
 */
 
@@ -55,17 +55,17 @@ Route::prefix('auth')->group(function () {
 });
 
 // ── Sản phẩm — Public ─────────────────────────────────────────────────────
-Route::get('/products',      [ProductController::class, 'index'])->name('products.index');
+Route::get('/products',         [ProductController::class, 'index'])->name('products.index');
 Route::get('/products/suggest', [ProductController::class, 'getSuggestedProducts'])->name('products.suggest');
-Route::get('/products/{id}', [ProductController::class, 'show'])->name('products.show');
+Route::get('/products/{id}',    [ProductController::class, 'show'])->name('products.show');
 Route::get('/products/{id}/reviews', [DanhGiaController::class, 'index']);
-Route::get('/tinh-thanh', [DiaLyController::class, 'getTinh']);
-Route::get('/xa', [DiaLyController::class, 'getXa']);
-Route::get('/ap', [DiaLyController::class, 'getAp']);
+Route::get('/tinh-thanh',       [DiaLyController::class, 'getTinh']);
+Route::get('/xa',               [DiaLyController::class, 'getXa']);
+Route::get('/ap',               [DiaLyController::class, 'getAp']);
 Route::get('/Cauchuyensanvat/{id}', [BaiVietController::class, 'getbaiviet']);
-Route::get('/randombaiviet', [BaiVietController::class, 'getRandomBlogs']);
-Route::get('/tintuc', [BaiVietController::class, 'getTinTuc']);
-Route::get('/bando', [VungMienController::class, 'index']);
+Route::get('/randombaiviet',    [BaiVietController::class, 'getRandomBlogs']);
+Route::get('/tintuc',           [BaiVietController::class, 'getTinTuc']);
+Route::get('/bando',            [VungMienController::class, 'index']);
 
 //test
 Route::get('/test-pusher', function(\Illuminate\Http\Request $request) {
@@ -97,8 +97,8 @@ Route::get('/phan-loai',      [PhanLoaiController::class, 'index'])->name('phanl
 Route::get('/phan-loai/{id}', [PhanLoaiController::class, 'show'])->name('phanloai.show');
 
 // ── VNPay Callbacks — Public (VNPay server/browser gọi vào, không cần Auth)
-Route::get('/vnpay/return',  [VNPayController::class, 'returnUrl'])->name('vnpay.return');
-Route::post('/vnpay/ipn',    [VNPayController::class, 'ipn'])->name('vnpay.ipn');
+Route::get('/vnpay/return',     [VNPayController::class, 'returnUrl'])->name('vnpay.return');
+Route::post('/vnpay/ipn',       [VNPayController::class, 'ipn'])->name('vnpay.ipn');
 Route::post('/vnpay/order-ipn', [DonHangController::class, 'vnpayIpn'])->name('vnpay.order.ipn');
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -112,11 +112,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
     Route::put('/auth/update-profile',   [AuthController::class, 'updateProfile'])->name('auth.update-profile');
 
-    // ── Đơn hàng ───────────────────────────────────────────────────────────
-    Route::get('/don-hang',      [DonHangController::class, 'index'])->name('donhang.index');
-    Route::get('/don-hang/{id}', [DonHangController::class, 'show'])->name('donhang.show');
-    Route::put('/orders/{id}/cancel', [DonHangController::class, 'huyDonHang']);
-    Route::post('/danh-gia',      [DanhGiaController::class, 'guiDanhGia']);
+    // ── Đơn hàng (Đã gộp thành công của cả HEAD và main) ───────────────────
+    Route::get('/don-hang',                      [DonHangController::class, 'index'])->name('donhang.index');
+    Route::get('/don-hang/{id}',                 [DonHangController::class, 'show'])->name('donhang.show');
+    Route::put('/orders/{id}/cancel',            [DonHangController::class, 'huyDonHang']);
+    Route::put('/don-hang/{id}/confirm-received', [DonHangController::class, 'xacNhanNhanHang'])->name('donhang.confirm-received');
+    Route::post('/reviews',                      [DanhGiaController::class, 'guiDanhGia']);
+    Route::post('/danh-gia',                     [DanhGiaController::class, 'guiDanhGia']);
 
     // ── Wallet ─────────────────────────────────────────────────────────────
     Route::get('/wallet',              [WalletController::class, 'index'])->name('wallet.index');
@@ -133,11 +135,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'adminDashboard'])->name('admin.dashboard');
 
         // Shop
-        Route::get('/shops',                          [ShopController::class, 'adminIndex'])->name('admin.shops.index');
-        Route::get('/shops/{id}/products',            [ShopController::class, 'shopProducts'])->name('admin.shops.products');
-        Route::put('/shops/{id}/approve',             [ShopController::class, 'approve'])->name('admin.shops.approve');
-        Route::put('/shops/{id}/reject',              [ShopController::class, 'reject'])->name('admin.shops.reject');
-        Route::patch('/shops/{id}/toggle-status',     [ShopController::class, 'toggleStatus']);
+        Route::get('/shops',                     [ShopController::class, 'adminIndex'])->name('admin.shops.index');
+        Route::get('/shops/{id}/products',       [ShopController::class, 'shopProducts'])->name('admin.shops.products');
+        Route::put('/shops/{id}/approve',        [ShopController::class, 'approve'])->name('admin.shops.approve');
+        Route::put('/shops/{id}/reject',         [ShopController::class, 'reject'])->name('admin.shops.reject');
+        Route::patch('/shops/{id}/toggle-status', [ShopController::class, 'toggleStatus']);
 
         // Sản phẩm
         Route::get('/products',                 [\App\Http\Controllers\AdminProductController::class, 'index']);
@@ -152,7 +154,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/BlogControl',         [BaiVietController::class, 'index']);
         Route::post('/BlogControl',        [BaiVietController::class, 'store']);
         Route::delete('/BlogControl/{id}', [BaiVietController::class, 'destroy']);
-        // Route::get('/BlogControl/{id}',    [BaiVietController::class, 'show']);
         Route::put('/BlogControl/{id}',    [BaiVietController::class, 'update']);
 
         // ── Quản lý Map ─────────────────────────────────────────────────────
@@ -164,18 +165,18 @@ Route::middleware('auth:sanctum')->group(function () {
         // Quản lý người dùng
         Route::get('/Nguoidung',                    [NguoiDungController::class, 'index']);
         Route::put('/Nguoidung/{id}/ChangeClock',   [NguoiDungController::class, 'changeclock']);
-        Route::put('/Nguoidung/capquyen/{id}',               [NguoiDungController::class, 'capquyenadmin']);
+        Route::put('/Nguoidung/capquyen/{id}',      [NguoiDungController::class, 'capquyenadmin']);
 
         // Wallet Admin
         Route::get('/wallet/stats',               [AdminWalletController::class, 'stats']);
         Route::get('/wallet/withdrawals',         [AdminWalletController::class, 'withdrawals']);
         Route::put('/wallet/withdrawals/{id}',    [AdminWalletController::class, 'processWithdrawal']);
 
-        // Quản lý đơn hàng
-        Route::get('/DonHang',     [AdminDonHangController::class, 'index']);
-        Route::get('/DonHang/{id}', [AdminDonHangController::class, 'chitiet']);
-        //Báo Cáo Thống Kê
-        Route::get('/baocao/thongkedoanhthu',[ThongKeController::class,'AdminThongKeDanhThu']);
+        // Quản lý đơn hàng & Thống kê doanh thu (Gộp chung an toàn)
+        Route::get('/DonHang',                       [AdminDonHangController::class, 'index']);
+        Route::get('/DonHang/{id}',                  [AdminDonHangController::class, 'chitiet']);
+        Route::put('/DonHang/{id}/status',           [AdminDonHangController::class, 'updateStatus']);
+        Route::get('/baocao/thongkedoanhthu',        [ThongKeController::class, 'AdminThongKeDanhThu']);
     });
 
     // ── Admin hoặc NguoiBan — CRUD sản phẩm ───────────────────────────────
@@ -193,11 +194,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/seller/orders',    [ShopController::class, 'getOrders'])->name('seller.orders.index');
         Route::put('/seller/orders/{id}/status', [ShopController::class, 'updateOrderStatus'])->name('seller.orders.update');
 
-        //Dánh Giá
+        // Đánh Giá
         Route::get('/seller/{idShop}/danh-gia', [DanhGiaController::class, 'layDanhGiaTheoShop']);
         Route::post('/seller/danh-gia/{id}', [DanhGiaController::class, 'phanhoi']);
 
-        //Báo Cáo Thống Kê
+        // Báo Cáo Thống Kê
         Route::get('/seller/baocao/thongkedoanhthu', [ThongKeController::class, 'SellerThongKeDanhThu']);
     });
 
