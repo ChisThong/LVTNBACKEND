@@ -90,10 +90,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/auth/update-profile',   [AuthController::class, 'updateProfile'])->name('auth.update-profile');
 
     // ── Đơn hàng ───────────────────────────────────────────────────────────
-    Route::get('/don-hang',      [DonHangController::class, 'index'])->name('donhang.index');
-    Route::get('/don-hang/{id}', [DonHangController::class, 'show'])->name('donhang.show');
-    Route::put('/orders/{id}/cancel', [DonHangController::class, 'huyDonHang']);
-    Route::post('/reviews',      [DanhGiaController::class, 'guiDanhGia']);
+    Route::get('/don-hang',                          [DonHangController::class, 'index'])->name('donhang.index');
+    Route::get('/don-hang/{id}',                     [DonHangController::class, 'show'])->name('donhang.show');
+    Route::put('/orders/{id}/cancel',                [DonHangController::class, 'huyDonHang']);
+    Route::put('/don-hang/{id}/confirm-received',    [DonHangController::class, 'xacNhanNhanHang'])->name('donhang.confirm-received');
+    Route::post('/reviews',                          [DanhGiaController::class, 'guiDanhGia']);
 
     // ── Wallet ─────────────────────────────────────────────────────────────
     Route::get('/wallet',              [WalletController::class, 'index'])->name('wallet.index');
@@ -149,8 +150,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/wallet/withdrawals/{id}',    [AdminWalletController::class, 'processWithdrawal']);
 
         // Quản lý đơn hàng
-        Route::get('/DonHang',     [AdminDonHangController::class, 'index']);
-        Route::get('/DonHang/{id}',[AdminDonHangController::class, 'chitiet']);
+        Route::get('/DonHang',                   [AdminDonHangController::class, 'index']);
+        Route::get('/DonHang/{id}',              [AdminDonHangController::class, 'chitiet']);
+        Route::put('/DonHang/{id}/status',       [AdminDonHangController::class, 'updateStatus']);
     });
 
     // ── Admin hoặc NguoiBan — CRUD sản phẩm ───────────────────────────────
