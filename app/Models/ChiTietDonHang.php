@@ -57,4 +57,12 @@ class ChiTietDonHang extends Model
     {
         return $this->belongsTo(Product::class, 'ID_SanPham', 'ID_SanPham');
     }
+
+    /**
+     * Mối quan hệ: Một dòng chi tiết đơn hàng có thể có Một đánh giá.
+     */
+    public function danhGia()
+    {
+        return $this->hasOne(DanhGia::class, 'ID_ChiTiet', 'ID_ChiTiet');
+    }
 }

@@ -143,4 +143,22 @@ class Product extends Model
     {
         return $query->where('TrangThai', 1);
     }
+
+    /**
+     * Scope: lọc theo khoảng thời gian duyệt sản phẩm.
+     */
+    public function scopeBetweenDate($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('NgayDuyet', [$startDate, $endDate]);
+    }
+
+    /**
+     * Relation: Một sản phẩm có nhiều chi tiết đơn hàng.
+     */
+    public function chiTietDonHang()
+    {
+        return $this->hasMany(ChiTietDonHang::class, 'ID_SanPham', 'ID_SanPham');
+    }
 }
+
+

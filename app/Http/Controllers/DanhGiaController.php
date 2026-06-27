@@ -6,6 +6,7 @@ use App\Models\DanhGia;
 use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\PhanHoiDanhGia;
+use App\Events\SellerActivityEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,9 @@ use Exception;
 
 class DanhGiaController extends Controller
 {
+    /**
+     * Khách hàng gửi đánh giá cho sản phẩm thuộc đơn hàng đã hoàn tất.
+     */
     public function guiDanhGia(Request $request): JsonResponse
     {
         try {
@@ -34,6 +38,7 @@ class DanhGiaController extends Controller
                     'errors'  => $validator->errors()
                 ], 422);
             }
+            
             $userId = Auth::id();
 
             if (!$userId) {
@@ -42,6 +47,7 @@ class DanhGiaController extends Controller
                     'message' => 'Bạn vui lòng đăng nhập để thực hiện đánh giá.'
                 ], 401);
             }
+            
             $chiTietDonHang = ChiTietDonHang::with('donHang')
                 ->where('ID_ChiTiet', $request->input('ID_ChiTiet'))
                 ->where('ID_SanPham', $request->input('ID_SanPham'))
@@ -73,13 +79,13 @@ class DanhGiaController extends Controller
                     'message' => 'Bạn đã gửi đánh giá cho sản phẩm thuộc đơn hàng này rồi.'
                 ], 400);
             }
+            
             $pathHinhAnh = null;
             if ($request->hasFile('HinhAnh')) {
                 $file = $request->file('HinhAnh');
-                $fileName = 'danhgia_' . time() . '.' . $file->getClientOriginalExtension();
-                $file->move(public_path('uploads/danhgia'), $fileName);
-                $pathHinhAnh = 'uploads/danhgia/' . $fileName;
+                $pathHinhAnh = $file->store('danhgia', 'public');
             }
+            
             $danhGiaMoi = DanhGia::create([
                 'ID_User'     => $userId,
                 'ID_SanPham'  => $request->input('ID_SanPham'),
@@ -89,11 +95,32 @@ class DanhGiaController extends Controller
                 'HinhAnh'     => $pathHinhAnh,
             ]);
 
+            // Dispatch notification to Seller
+            try {
+                $danhGiaMoi->load('sanPham');
+                $idShop = $danhGiaMoi->sanPham->ID_Shop ?? null;
+                if ($idShop) {
+                    $buyerName = Auth::user()->HoTen ?? Auth::user()->name ?? 'Khách hàng';
+                    $tenSp = $danhGiaMoi->sanPham->TenSanPham ?? 'sản phẩm';
+                    $activityData = [
+                        'id_target' => $danhGiaMoi->ID_DanhGia,
+                        'tieude' => "Khách hàng {$buyerName} đã gửi đánh giá {$danhGiaMoi->XepLoai} sao cho \"{$tenSp}\"!",
+                        'thoigian' => now()->toDateTimeString(),
+                        'trangthai' => 'Mới',
+                        'type' => 'review'
+                    ];
+                    event(new SellerActivityEvent($activityData, $idShop));
+                }
+            } catch (Exception $e) {
+                logger()->error('Failed to send review notification: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Cảm ơn bạn đã gửi đánh giá sản phẩm thành công!',
                 'data'    => $danhGiaMoi
             ], 201);
+            
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
@@ -102,21 +129,34 @@ class DanhGiaController extends Controller
             ], 500);
         }
     }
-    public function index(String $id)
+
+    /**
+     * Lấy danh sách đánh giá của MỘT sản phẩm cụ thể.
+     */
+    public function index(String $id): JsonResponse
     {
         try {
-            $danhgias = DanhGia::with(['user:ID_User,HoTen', 'phanHoi'])->where('ID_SanPham', $id)->get();
+            $danhgias = DanhGia::with(['user:ID_User,HoTen', 'phanHoi'])
+                ->where('ID_SanPham', $id)
+                ->orderBy('ID_DanhGia', 'desc')
+                ->get();
+                
             return response()->json([
                 'success' => true,
-                'data' => $danhgias
+                'data'    => $danhgias
             ], 200);
-        } catch (\Exception $e) {
+            
+        } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Lỗi hệ thống: ' . $e->getMessage()
             ], 500);
         }
     }
+
+    /**
+     * Shop hoặc Admin phản hồi lại một đánh giá của khách hàng.
+     */
     public function phanhoi(Request $request, String $id): JsonResponse
     {
         try {
@@ -141,12 +181,14 @@ class DanhGiaController extends Controller
                     'message' => 'Không tìm thấy bài đánh giá này để phản hồi.'
                 ], 404);
             }
+            
             if ($danhGia->phanHoi()->exists()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bạn đã phản hồi đánh giá này rồi. Để sửa đổi, hãy dùng tính năng cập nhật.'
                 ], 400);
             }
+            
             $phanHoiMoi = PhanHoiDanhGia::create([
                 'ID_DanhGia'     => (int) $id,
                 'NoiDungPhanHoi' => $request->input('NoiDungPhanHoi'),
@@ -158,10 +200,42 @@ class DanhGiaController extends Controller
                 'message' => 'Gửi phản hồi đánh giá thành công!',
                 'data'    => $phanHoiMoi
             ], 201);
+            
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Lỗi hệ thống khi gửi phản hồi.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Lấy tất cả đánh giá của TẤT CẢ các sản phẩm thuộc về một Shop (có phân trang).
+     */
+    public function layDanhGiaTheoShop(string $idShop): JsonResponse
+    {
+        try {
+            $danhGias = DanhGia::with([
+                    'user:ID_User,HoTen', 
+                    'phanHoi', 
+                    'sanPham:ID_SanPham,TenSanPham,ID_Shop'
+                ])
+                ->whereHas('sanPham', function ($query) use ($idShop) {
+                    $query->where('ID_Shop', $idShop); 
+                })
+                ->orderBy('ID_DanhGia', 'desc')
+                ->paginate(15); 
+
+            return response()->json([
+                'success' => true,
+                'data'    => $danhGias
+            ], 200);
+
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi hệ thống khi lấy danh sách đánh giá của shop.',
                 'error'   => $e->getMessage()
             ], 500);
         }

@@ -19,12 +19,11 @@ class BaiVietController extends Controller
     {
         try {
             $blog = Blog::with('tinhThanh:ID_TinhThanh,TenTinhThanh', 'user:ID_User,HoTen')
-                ->when($request->search, function ($q) use ($request) {
-                    $keyword = mb_strtolower($request->search, 'UTF-8');
-                    return $q->whereRaw('LOWER(tittel) like ?', ["%{$keyword}%"]);
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    return $q->where('tittel', 'like', "%{$request->search}%");
                 })
                 ->when($request->has('LoaiTin'), function ($q) use ($request) {
-                    return $q->where('LoaiTin', $request->loai_tin);
+                    return $q->where('LoaiTin', $request->LoaiTin);
                 })
                 ->orderByDesc('ID_Blog')
                 ->paginate(10);
@@ -42,35 +41,35 @@ class BaiVietController extends Controller
         }
     }
 
-    /**
-     * 2. Xem chi tiết 1 bài viết
-     */
-    public function show(string $id): JsonResponse
-    {
-        try {
-            $blog = Blog::with('tinhThanh:ID_TinhThanh,TenTinhThanh')
-                ->where('ID_Blog', $id)
-                ->first();
+    // /**
+    //  * 2. Xem chi tiết 1 bài viết
+    //  */
+    // public function show(string $id): JsonResponse
+    // {
+    //     try {
+    //         $blog = Blog::with('tinhThanh:ID_TinhThanh,TenTinhThanh')
+    //             ->where('ID_Blog', $id)
+    //             ->first();
 
-            if (!$blog) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Không tìm thấy bài viết'
-                ], 404);
-            }
+    //         if (!$blog) {
+    //             return response()->json([
+    //                 'success' => false,
+    //                 'message' => 'Không tìm thấy bài viết'
+    //             ], 404);
+    //         }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Lấy chi tiết bài viết thành công',
-                'data'    => $blog
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Lỗi hệ thống: ' . $e->getMessage()
-            ], 500);
-        }
-    }
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Lấy chi tiết bài viết thành công',
+    //             'data'    => $blog
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => 'Lỗi hệ thống: ' . $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
 
     /**
      * 3. Tạo bài viết mới
@@ -125,7 +124,7 @@ class BaiVietController extends Controller
 
             $data = $request->validated();
             $data['ID_User'] = Auth::id();
-            
+
             if ($request->hasFile('hinhanh')) {
                 if ($blog->hinhanh) {
                     Storage::disk('public')->delete($blog->hinhanh);
@@ -141,7 +140,7 @@ class BaiVietController extends Controller
                     $data['video_url'] = "https://www.youtube.com/embed/{$youtubeId}";
                 }
             } else {
-                $data['video_url'] = null; 
+                $data['video_url'] = null;
             }
 
             $blog->update($data);
@@ -195,7 +194,7 @@ class BaiVietController extends Controller
     }
     public function getRandomBlogs()
     {
-        $randomBlogs = Blog::where('LoaiTin',0)->inRandomOrder()
+        $randomBlogs = Blog::where('LoaiTin', 0)->inRandomOrder()
             ->take(5)
             ->get();
 
@@ -204,8 +203,9 @@ class BaiVietController extends Controller
             'data' => $randomBlogs
         ], 200);
     }
-    public function getTinTuc(){
-         $randomBlogs = Blog::where('LoaiTin',1)->inRandomOrder()
+    public function getTinTuc()
+    {
+        $randomBlogs = Blog::where('LoaiTin', 1)->inRandomOrder()
             ->take(5)
             ->get();
 
@@ -214,5 +214,4 @@ class BaiVietController extends Controller
             'data' => $randomBlogs
         ], 200);
     }
-
 }

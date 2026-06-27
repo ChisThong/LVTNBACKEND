@@ -114,4 +114,13 @@ class User extends Authenticatable
     {
         return (int) $this->ID_role === $roleId;
     }
+
+    /**
+     * Scope: lọc theo khoảng thời gian đăng ký.
+     */
+    public function scopeBetweenDate($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('ngaydangki', [$startDate, $endDate]);
+    }
 }
+

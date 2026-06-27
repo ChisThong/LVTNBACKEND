@@ -83,4 +83,8 @@ class DonHang extends Model
     {
         return $this->hasMany(ChiTietDonHang::class, 'ID_DonHang', 'ID_DonHang');
     }
+    public function scopeBetweenDate($query, $startDate, $endDate)
+    {
+        return $query->whereBetween('date', [$startDate, $endDate]);
+    }
 }

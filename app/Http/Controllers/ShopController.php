@@ -46,10 +46,23 @@ class ShopController extends Controller
             'ID_User'        => $user->ID_User,
         ]);
 
+        $activityData = [
+            'id_target' => $shop->ID_Shop,
+            'tieude' => "Cửa hàng " . $shop->TenShop . " mới gửi yêu cầu duyệt",
+            'thoigian' => now()->toDateTimeString(),
+            'trangthai' => 'Chờ duyệt',
+            'type' => 'shop'
+        ];
+
+        // Bắn tín hiệu sang Pusher
+        event(new \App\Events\AdminActivityEvent($activityData));
+
         return response()->json([
             'success' => true,
             'message' => 'Đăng ký gian hàng thành công. Vui lòng chờ Admin xét duyệt.',
             'data'    => $shop->load('user:ID_User,HoTen,email'),
+            'activities' => $activityData
+
         ], 201);
     }
 
@@ -144,12 +157,12 @@ class ShopController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('TenShop', 'like', "%{$search}%")
-                  ->orWhere('SoDienThoai', 'like', "%{$search}%")
-                  ->orWhereHas('user', function ($qUser) use ($search) {
-                      $qUser->where('HoTen', 'like', "%{$search}%")
+                    ->orWhere('SoDienThoai', 'like', "%{$search}%")
+                    ->orWhereHas('user', function ($qUser) use ($search) {
+                        $qUser->where('HoTen', 'like', "%{$search}%")
                             ->orWhere('email', 'like', "%{$search}%")
                             ->orWhere('sdt', 'like', "%{$search}%");
-                  });
+                    });
             });
         }
 
@@ -192,6 +205,15 @@ class ShopController extends Controller
 
         // ── Chuyển role user sang NguoiBan (ID_role = 3) ──────────────────────
         $shop->user()->update(['ID_role' => 3]);
+
+        $activityData = [
+            'id_target' => $shop->ID_Shop,
+            'tieude' => "Gian hàng \"" . $shop->TenShop . "\" của bạn đã được Admin duyệt thành công!",
+            'thoigian' => now()->toDateTimeString(),
+            'trangthai' => 'Mới',
+            'type' => 'shop'
+        ];
+        event(new \App\Events\SellerActivityEvent($activityData, $shop->ID_Shop));
 
         return response()->json([
             'success' => true,
@@ -236,6 +258,15 @@ class ShopController extends Controller
         if ($shop->user && (int) $shop->user->ID_role === 3) {
             $shop->user()->update(['ID_role' => 2]);
         }
+
+        $activityData = [
+            'id_target' => $shop->ID_Shop,
+            'tieude' => "Yêu cầu duyệt gian hàng \"" . $shop->TenShop . "\" đã bị từ chối. Lý do: " . $shop->LyDoTuChoi,
+            'thoigian' => now()->toDateTimeString(),
+            'trangthai' => 'Mới',
+            'type' => 'shop'
+        ];
+        event(new \App\Events\SellerActivityEvent($activityData, $shop->ID_Shop));
 
         return response()->json([
             'success' => true,
@@ -308,8 +339,8 @@ class ShopController extends Controller
             ->where('TrangThaiDuyet', Shop::DUYET_DA)
             ->withCount(['products' => function ($q) {
                 $q->where('TrangThai', 1)
-                  ->where('TrangThaiDuyet', 'da_duyet')
-                  ->where('TrangThaiHienThi', 'hien');
+                    ->where('TrangThaiDuyet', 'da_duyet')
+                    ->where('TrangThaiHienThi', 'hien');
             }])
             ->find($id);
 
@@ -323,9 +354,9 @@ class ShopController extends Controller
         // Tải kèm danh sách sản phẩm đang bán và đang hiển
         $shop->load(['products' => function ($q) {
             $q->where('TrangThai', 1)
-              ->where('TrangThaiDuyet', 'da_duyet')
-              ->where('TrangThaiHienThi', 'hien')
-              ->with(['hinhAnh', 'phanLoai', 'tinhThanh']);
+                ->where('TrangThaiDuyet', 'da_duyet')
+                ->where('TrangThaiHienThi', 'hien')
+                ->with(['hinhAnh', 'phanLoai', 'tinhThanh']);
         }]);
 
         return response()->json([
@@ -341,10 +372,10 @@ class ShopController extends Controller
     public function getWallet(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Lấy hoặc tạo ví cho người bán
         $wallet = \Illuminate\Support\Facades\DB::table('wallets')->where('user_id', $user->ID_User)->first();
-        
+
         if (!$wallet) {
             $walletId = \Illuminate\Support\Facades\DB::table('wallets')->insertGetId([
                 'user_id' => $user->ID_User,
@@ -415,7 +446,7 @@ class ShopController extends Controller
                 // 1. Cộng ví Seller
                 $sellerWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $user->ID_User]);
                 $sellerWallet = \App\Models\Wallet::lockForUpdate()->find($sellerWallet->id);
-                
+
                 $beforeSeller = $sellerWallet->balance;
                 $sellerWallet->balance += $sellerAmount;
                 $sellerWallet->save();
@@ -436,7 +467,7 @@ class ShopController extends Controller
                 $adminUserId = 6; // Giả định ID admin là 6 theo AdminDonHangController
                 $adminWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $adminUserId]);
                 $adminWallet = \App\Models\Wallet::lockForUpdate()->find($adminWallet->id);
-                
+
                 $beforeAdmin = $adminWallet->balance;
                 $adminWallet->balance += $commission;
                 $adminWallet->save();
@@ -479,7 +510,6 @@ class ShopController extends Controller
                 'message' => 'Đã cập nhật trạng thái đơn hàng.',
                 'data'    => $donHang
             ]);
-
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\DB::rollBack();
             return response()->json([

@@ -28,14 +28,14 @@ class AuthController extends Controller
             ->delete();
 
         $otp = (string) random_int(100000, 999999);
-EmailVerification::create([
-    'email'       => $user->email,
-    'otp_code'    => $otp,
-    'created_at'  => now(), // Ép cột tạo mới về giờ VN
-    'updated_at'  => now(), // Ép cột cập nhật về giờ VN
-    'expires_at'  => now()->addMinutes(5),
-    'is_used'     => false,
-]);
+        EmailVerification::create([
+            'email'       => $user->email,
+            'otp_code'    => $otp,
+            'created_at'  => now(), // Ép cột tạo mới về giờ VN
+            'updated_at'  => now(), // Ép cột cập nhật về giờ VN
+            'expires_at'  => now()->addMinutes(5),
+            'is_used'     => false,
+        ]);
 
         Mail::to($user->email)->send(new SendOtpMail($user->HoTen, $otp));
     }
@@ -61,7 +61,16 @@ EmailVerification::create([
             'ngaydangki' => now(),
             'ID_role'    => $request->ID_role,
         ]);
+        $activityData = [
+            'id_target' => $user->ID_User,
+            'tieude' => "Người dùng mới" . $user->HoTen . "vừa đăng ký tài khoảng",
+            'thoigian' => now()->toDateTimeString(),
+            'trangthai' => 'Chờ duyệt',
+            'type' => 'shop'
+        ];
 
+        // Bắn tín hiệu sang Pusher
+        event(new \App\Events\AdminActivityEvent($activityData));
         $this->generateAndSendOtp($user);
 
         return response()->json([
@@ -70,6 +79,7 @@ EmailVerification::create([
             'data'    => [
                 'email' => $user->email,
             ],
+            'activities' => $activityData
         ], 201);
     }
 
@@ -314,7 +324,7 @@ EmailVerification::create([
     public function updateProfile(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $request->validate([
             'HoTen' => 'required|string|min:3|max:100',
             'sdt' => 'required|regex:/^[0-9]{10}$/|unique:user,sdt,' . $user->ID_User . ',ID_User',
