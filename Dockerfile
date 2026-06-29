@@ -1,7 +1,7 @@
 FROM php:8.2-fpm-alpine
 
 # Cài đặt các extension cần thiết cho Laravel
-RUN apk add --no-repeat --update \
+RUN apk add --no-cache --update \
     nginx \
     supervisor \
     curl \
