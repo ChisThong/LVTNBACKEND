@@ -227,9 +227,32 @@ class DanhGiaController extends Controller
                 ->orderBy('ID_DanhGia', 'desc')
                 ->paginate(15); 
 
+            // Tính toán đánh giá trung bình
+            $ratingQuery = DanhGia::whereHas('sanPham', function ($query) use ($idShop) {
+                $query->where('ID_Shop', $idShop);
+            });
+            $averageRating = $ratingQuery->avg('XepLoai');
+            $totalReviews = $ratingQuery->count();
+
+            // Tính phần trăm phản hồi
+            $respondedReviews = DanhGia::whereHas('sanPham', function ($query) use ($idShop) {
+                $query->where('ID_Shop', $idShop);
+            })->has('phanHoi')->count();
+            $responseRate = $totalReviews > 0 ? round(($respondedReviews / $totalReviews) * 100) : 100;
+
+            // Số lượng sản phẩm đang bán
+            $productsCount = \App\Models\Product::where('ID_Shop', $idShop)
+                ->where('TrangThai', 1)
+                ->where('TrangThaiDuyet', 'da_duyet')
+                ->where('TrangThaiHienThi', 'hien')
+                ->count();
+
             return response()->json([
                 'success' => true,
-                'data'    => $danhGias
+                'data'    => $danhGias,
+                'avg_rating' => $averageRating ? round($averageRating, 1) : 5.0,
+                'response_rate' => $responseRate,
+                'products_count' => $productsCount
             ], 200);
 
         } catch (Exception $e) {

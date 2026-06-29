@@ -66,33 +66,6 @@ class DonHangController extends Controller
             // Lấy phương thức thanh toán động từ Frontend gửi lên ('COD' hoặc 'VNPAY' hoặc 'WALLET')
             $phuongThuc = $request->input('PhuongThucThanhToan', 'COD');
 
-            // ── 3.5. Xử lý logic thanh toán bằng Ví (WALLET) ───────────────
-            if ($phuongThuc === 'WALLET') {
-                $wallet = DB::table('wallets')->where('user_id', $user->ID_User)->lockForUpdate()->first();
-                
-                if (!$wallet || $wallet->balance < $tongTienToanBo) {
-                    DB::rollBack();
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Số dư ví không đủ, vui lòng nạp thêm tiền.'
-                    ], 422);
-                }
-
-                // Trừ tiền trong ví
-                DB::table('wallets')->where('id', $wallet->id)->decrement('balance', $tongTienToanBo);
-
-                // Lưu vết giao dịch
-                DB::table('wallet_transactions')->insert([
-                    'wallet_id'   => $wallet->id,
-                    'amount'      => -$tongTienToanBo,
-                    'type'        => 'expense', // Chi tiêu mua hàng
-                    'description' => 'Thanh toán đơn hàng qua Ví',
-                    'status'      => 'completed',
-                    'created_at'  => now(),
-                    'updated_at'  => now()
-                ]);
-            }
-
             // ── 4. Tạo bản ghi DonHangTong ─────────────────────────────────────
             $donHangTong = DonHangTong::create([
                 'ID_User'             => $user->ID_User,
@@ -101,9 +74,32 @@ class DonHangController extends Controller
                 'DiaChiNhan'          => $request->DiaChiGiao,
                 'TongGiaTien'         => $tongTienToanBo,
                 'PhuongThucThanhToan' => $phuongThuc,
-                'TrangThaiThanhToan'  => $phuongThuc === 'WALLET' ? DonHangTong::THANH_TOAN_DA_THANH_TOAN : DonHangTong::THANH_TOAN_CHUA_THANH_TOAN,
+                'TrangThaiThanhToan'  => DonHangTong::THANH_TOAN_CHUA_THANH_TOAN,
                 'Ngaydat'             => now(),
             ]);
+
+            // ── 3.5. Xử lý logic thanh toán bằng Ví (WALLET) ───────────────
+            if ($phuongThuc === 'WALLET') {
+                try {
+                    $walletService = app(\App\Services\WalletService::class);
+                    $walletService->payment(
+                        $user->ID_User,
+                        $tongTienToanBo,
+                        'order',
+                        (string)$donHangTong->ID_DonHangTong
+                    );
+                    
+                    // Cập nhật lại trạng thái thanh toán thành đã thanh toán
+                    $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                    $donHangTong->save();
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => $e->getMessage()
+                    ], 422);
+                }
+            }
             
 
             // ── 5. Gom nhóm sản phẩm theo Shop (Group by ID_Shop) ──────────────
@@ -438,21 +434,31 @@ class DonHangController extends Controller
                 $tienHoan = $donHang->TongGia + $donHang->PhiVanChuyen;
 
                 // Lấy ví của user (Lock để an toàn)
-                $wallet = DB::table('wallets')->where('user_id', $user->ID_User)->lockForUpdate()->first();
+                $wallet = \App\Models\Wallet::where('user_id', $user->ID_User)->lockForUpdate()->first();
                 
                 if ($wallet) {
-                    // Cộng tiền
-                    DB::table('wallets')->where('id', $wallet->id)->increment('balance', $tienHoan);
+                    $before = $wallet->balance;
 
-                    // Ghi log hoàn tiền
-                    DB::table('wallet_transactions')->insert([
-                        'wallet_id'   => $wallet->id,
-                        'amount'      => $tienHoan,
-                        'type'        => 'refund', // Loại hoàn tiền
-                        'description' => 'Hoàn tiền do hủy đơn hàng con #' . $donHang->MaDonHangCon,
-                        'status'      => 'completed',
-                        'created_at'  => now(),
-                        'updated_at'  => now()
+                    // Nếu thanh toán bằng ví (tiền đang ở dạng frozen_balance), hoàn từ frozen_balance về balance
+                    if ($donHangTong->PhuongThucThanhToan === 'WALLET') {
+                        if ($wallet->frozen_balance >= $tienHoan) {
+                            $wallet->frozen_balance -= $tienHoan;
+                        }
+                    }
+
+                    $wallet->balance += $tienHoan;
+                    $wallet->save();
+
+                    // Ghi log hoàn tiền sử dụng model WalletTransaction và ENUM hợp lệ
+                    \App\Models\WalletTransaction::create([
+                        'wallet_id'      => $wallet->id,
+                        'amount'         => $tienHoan,
+                        'type'           => 'deposit', // Hoàn tiền vào ví
+                        'status'         => 'success',
+                        'balance_before' => $before,
+                        'balance_after'  => $wallet->balance,
+                        'reference_type' => 'order_refund',
+                        'reference_id'   => (string)$donHang->ID_DonHang
                     ]);
                 }
             }
@@ -546,14 +552,13 @@ class DonHangController extends Controller
 
                 \App\Models\WalletTransaction::create([
                     'wallet_id'      => $sellerWallet->id,
-                    'type'           => 'revenue',
-                    'status'         => 'completed',
+                    'type'           => 'release',
+                    'status'         => 'success',
                     'amount'         => $sellerAmt,
                     'balance_before' => $beforeSeller,
                     'balance_after'  => $sellerWallet->balance,
                     'reference_type' => 'donhang_seller',
                     'reference_id'   => $donHang->ID_DonHang,
-                    'description'    => 'Doanh thu từ đơn hàng #' . $donHang->MaDonHangCon . ' (Người mua xác nhận)',
                 ]);
             }
 
@@ -568,13 +573,12 @@ class DonHangController extends Controller
             \App\Models\WalletTransaction::create([
                 'wallet_id'      => $adminWallet->id,
                 'type'           => 'commission',
-                'status'         => 'completed',
+                'status'         => 'success',
                 'amount'         => $commission,
                 'balance_before' => $beforeAdmin,
                 'balance_after'  => $adminWallet->balance,
                 'reference_type' => 'donhang_admin',
                 'reference_id'   => $donHang->ID_DonHang,
-                'description'    => 'Hoa hồng 5% từ đơn hàng #' . $donHang->MaDonHangCon,
             ]);
 
             // 4c. Nếu là COD: cập nhật trạng thái thanh toán → Đã thanh toán
