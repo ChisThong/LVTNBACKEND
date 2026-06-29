@@ -24,8 +24,8 @@ WORKDIR /var/www/html
 # Copy toàn bộ code vào container
 COPY . .
 
-# Cài đặt dependencies của Laravel
-RUN composer install --no-interaction --optimize-autoloader --no-dev
+# Cài đặt dependencies của Laravel (tự động fallback sang git clone nếu tải zip lỗi)
+RUN composer install --no-interaction --optimize-autoloader --no-dev --prefer-install=auto
 
 # Cấu hình Nginx và Supervisor
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
