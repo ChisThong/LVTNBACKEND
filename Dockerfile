@@ -27,6 +27,9 @@ COPY . .
 # Cài đặt dependencies của Laravel (tự động fallback sang git clone nếu tải zip lỗi)
 RUN composer install --no-interaction --optimize-autoloader --no-dev --prefer-install=auto
 
+# Tạo liên kết lưu trữ để truy cập ảnh công khai
+RUN php artisan storage:link
+
 # Cấu hình Nginx và Supervisor
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
 COPY ./docker/supervisord.conf /etc/supervisord.conf
