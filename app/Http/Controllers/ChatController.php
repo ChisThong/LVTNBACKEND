@@ -97,10 +97,10 @@ class ChatController extends Controller
     public function layDanhSachPhongChat(Request $request)
     {
         $idUser = Auth::id();
-        $isSeller = $request->query('role') === 'seller';
+        $isSellerRoute = $request->query('role') === 'seller';
 
-        if ($isSeller) {
-            // Lấy shop của user này
+        // 1. Nếu gọi từ trang Quản lý Shop (chỉ hiển thị khách hàng chat đến)
+        if ($isSellerRoute) {
             $shop = Shop::where('ID_User', $idUser)->first();
             if (!$shop) {
                 return response()->json([
@@ -112,17 +112,38 @@ class ChatController extends Controller
             // Lấy các phòng chat của shop này, kèm thông tin của Buyer (người dùng)
             $danhSach = PhongChat::where('phongchat.ID_Shop', $shop->ID_Shop)
                 ->leftJoin('user', 'phongchat.ID_User', '=', 'user.ID_User')
-                ->select('phongchat.*', 'user.HoTen as ten_khach_hang', 'user.email as email_khach_hang')
+                ->select('phongchat.*', 'user.HoTen as ten_doi_tac', 'user.email as email_doi_tac')
+                ->selectRaw("'customer' as vai_tro")
                 ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
                 ->get();
-        } else {
-            // Lấy tất cả các phòng chat của user hiện tại (Buyer), kèm thông tin của Shop
-            $danhSach = PhongChat::where('phongchat.ID_User', $idUser)
-                ->leftJoin('shop', 'phongchat.ID_Shop', '=', 'shop.ID_Shop')
-                ->select('phongchat.*', 'shop.TenShop', 'shop.logo as shop_logo')
-                ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
+
+            return response()->json([
+                'success' => true,
+                'data'    => $danhSach
+            ]);
+        }
+
+        // 2. Nếu gọi từ trang chủ / Navbar (hiển thị cả 2: các Shop mình đi mua, và Khách hàng nhắn cho Shop mình nếu có)
+        // Lấy các phòng chat mình đi mua (vai trò là Khách hàng)
+        $chatsAsBuyer = PhongChat::where('phongchat.ID_User', $idUser)
+            ->leftJoin('shop', 'phongchat.ID_Shop', '=', 'shop.ID_Shop')
+            ->select('phongchat.*', 'shop.TenShop as ten_doi_tac', 'shop.logo as logo_doi_tac')
+            ->selectRaw("'shop' as vai_tro")
+            ->get();
+
+        // Lấy các phòng chat khách hàng nhắn đến Shop của mình (nếu mình là chủ Shop)
+        $myShop = Shop::where('ID_User', $idUser)->first();
+        $chatsAsSeller = collect();
+        if ($myShop) {
+            $chatsAsSeller = PhongChat::where('phongchat.ID_Shop', $myShop->ID_Shop)
+                ->leftJoin('user', 'phongchat.ID_User', '=', 'user.ID_User')
+                ->select('phongchat.*', 'user.HoTen as ten_doi_tac')
+                ->selectRaw("'customer' as vai_tro")
                 ->get();
         }
+
+        // Gộp hai danh sách và sắp xếp theo thời gian cập nhật mới nhất
+        $danhSach = $chatsAsBuyer->merge($chatsAsSeller)->sortByDesc('ThoiGianCapNhat')->values();
 
         return response()->json([
             'success' => true,
