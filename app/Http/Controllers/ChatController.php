@@ -161,11 +161,12 @@ class ChatController extends Controller
                 ], 403);
             }
 
-            // Lấy các phòng chat của shop này, kèm thông tin của Buyer (người dùng)
+            // Lấy các phòng chat của shop này, kèm thông tin của Buyer (người dùng) và đếm tin chưa đọc
             $danhSach = PhongChat::where('phongchat.ID_Shop', $shop->ID_Shop)
                 ->leftJoin('user', 'phongchat.ID_User', '=', 'user.ID_User')
                 ->select('phongchat.*', 'user.HoTen as ten_doi_tac', 'user.email as email_doi_tac')
                 ->selectRaw("'customer' as vai_tro")
+                ->selectRaw("(SELECT COUNT(*) FROM tinnhanchat WHERE tinnhanchat.ID_PhongChat = phongchat.ID_PhongChat AND tinnhanchat.DaDoc = 0 AND tinnhanchat.LoaiNguoiGui = 'user') as tin_chua_doc")
                 ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
                 ->get();
 
@@ -176,14 +177,15 @@ class ChatController extends Controller
         }
 
         // 2. Nếu gọi từ trang chủ / Navbar (hiển thị cả 2: các Shop mình đi mua, và Khách hàng nhắn cho Shop mình nếu có)
-        // Lấy các phòng chat mình đi mua (vai trò là Khách hàng)
+        // Lấy các phòng chat mình đi mua (vai trò là Khách hàng) và đếm tin chưa đọc
         $chatsAsBuyer = PhongChat::where('phongchat.ID_User', $idUser)
             ->leftJoin('shop', 'phongchat.ID_Shop', '=', 'shop.ID_Shop')
             ->select('phongchat.*', 'shop.TenShop as ten_doi_tac', 'shop.logo as logo_doi_tac')
             ->selectRaw("'shop' as vai_tro")
+            ->selectRaw("(SELECT COUNT(*) FROM tinnhanchat WHERE tinnhanchat.ID_PhongChat = phongchat.ID_PhongChat AND tinnhanchat.DaDoc = 0 AND tinnhanchat.LoaiNguoiGui = 'shop') as tin_chua_doc")
             ->get();
 
-        // Lấy các phòng chat khách hàng nhắn đến Shop của mình (nếu mình là chủ Shop)
+        // Lấy các phòng chat khách hàng nhắn đến Shop của mình (nếu mình là chủ Shop) và đếm tin chưa đọc
         $myShop = Shop::where('ID_User', $idUser)->first();
         $chatsAsSeller = collect();
         if ($myShop) {
@@ -191,6 +193,7 @@ class ChatController extends Controller
                 ->leftJoin('user', 'phongchat.ID_User', '=', 'user.ID_User')
                 ->select('phongchat.*', 'user.HoTen as ten_doi_tac')
                 ->selectRaw("'customer' as vai_tro")
+                ->selectRaw("(SELECT COUNT(*) FROM tinnhanchat WHERE tinnhanchat.ID_PhongChat = phongchat.ID_PhongChat AND tinnhanchat.DaDoc = 0 AND tinnhanchat.LoaiNguoiGui = 'user') as tin_chua_doc")
                 ->get();
         }
 
