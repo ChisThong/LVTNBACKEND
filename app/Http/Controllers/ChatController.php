@@ -89,4 +89,24 @@ class ChatController extends Controller
 
         return response()->json($danhSachTinNhan);
     }
+
+    /**
+     * 4. HÀM LẤY DANH SÁCH PHÒNG CHAT CỦA USER
+     */
+    public function layDanhSachPhongChat(Request $request)
+    {
+        $idUser = Auth::id();
+
+        // Lấy tất cả các phòng chat của user hiện tại, kèm thông tin của Shop
+        $danhSach = PhongChat::where('phongchat.ID_User', $idUser)
+            ->leftJoin('shop', 'phongchat.ID_Shop', '=', 'shop.ID_Shop')
+            ->select('phongchat.*', 'shop.TenShop', 'shop.logo as shop_logo')
+            ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data'    => $danhSach
+        ]);
+    }
 }

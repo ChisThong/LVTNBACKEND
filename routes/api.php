@@ -153,6 +153,7 @@ Route::middleware('auth:sanctum')->group(function () {
      Route::post('/chat/vao-phong', [ChatController::class, 'vaoPhongChat']);
     Route::post('/chat/gui-tin-nhan', [ChatController::class, 'guiTinNhan']);
     Route::get('/chat/phong/{idPhongChat}/tin-nhan', [ChatController::class, 'layTinNhan']);
+    Route::get('/chat/danh-sach-phong', [ChatController::class, 'layDanhSachPhongChat']);
 
     // ── ADMIN only ─────────────────────────────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
