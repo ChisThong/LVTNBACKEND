@@ -82,6 +82,27 @@ class ChatController extends Controller
      */
     public function layTinNhan($idPhongChat)
     {
+        $idUser = Auth::id();
+        $myShop = Shop::where('ID_User', $idUser)->first();
+
+        // Đánh dấu tất cả tin nhắn gửi từ bên kia là đã đọc
+        $room = PhongChat::find($idPhongChat);
+        if ($room) {
+            if ((int)$room->ID_User === (int)$idUser) {
+                // Mình là Buyer, đánh dấu các tin từ Shop là đã đọc
+                TinNhan::where('ID_PhongChat', $idPhongChat)
+                    ->where('LoaiNguoiGui', 'shop')
+                    ->where('DaDoc', 0)
+                    ->update(['DaDoc' => 1]);
+            } elseif ($myShop && (int)$room->ID_Shop === (int)$myShop->ID_Shop) {
+                // Mình là Seller, đánh dấu các tin từ Buyer là đã đọc
+                TinNhan::where('ID_PhongChat', $idPhongChat)
+                    ->where('LoaiNguoiGui', 'user')
+                    ->where('DaDoc', 0)
+                    ->update(['DaDoc' => 1]);
+            }
+        }
+
         // Lấy 50 tin nhắn cũ nhất của phòng chat này sắp xếp theo thời gian
         $danhSachTinNhan = TinNhan::where('ID_PhongChat', $idPhongChat)
                             ->orderBy('ThoiGianGui', 'asc')
@@ -89,6 +110,37 @@ class ChatController extends Controller
                             ->get();
 
         return response()->json($danhSachTinNhan);
+    }
+
+    /**
+     * 3.1 HÀM LẤY TỔNG SỐ TIN NHẮN CHƯA ĐỌC CỦA USER/SHOP
+     */
+    public function soTinChuaDoc(Request $request)
+    {
+        $idUser = Auth::id();
+        $myShop = Shop::where('ID_User', $idUser)->first();
+
+        // 1. Số tin chưa đọc khi đóng vai trò người mua (nhận từ shop)
+        $userUnread = TinNhan::join('phongchat', 'tinnhanchat.ID_PhongChat', '=', 'phongchat.ID_PhongChat')
+            ->where('phongchat.ID_User', $idUser)
+            ->where('tinnhanchat.LoaiNguoiGui', 'shop')
+            ->where('tinnhanchat.DaDoc', 0)
+            ->count();
+
+        // 2. Số tin chưa đọc khi đóng vai trò shop (nhận từ khách)
+        $shopUnread = 0;
+        if ($myShop) {
+            $shopUnread = TinNhan::join('phongchat', 'tinnhanchat.ID_PhongChat', '=', 'phongchat.ID_PhongChat')
+                ->where('phongchat.ID_Shop', $myShop->ID_Shop)
+                ->where('tinnhanchat.LoaiNguoiGui', 'user')
+                ->where('tinnhanchat.DaDoc', 0)
+                ->count();
+        }
+
+        return response()->json([
+            'success' => true,
+            'tong_chua_doc' => $userUnread + $shopUnread
+        ]);
     }
 
     /**
