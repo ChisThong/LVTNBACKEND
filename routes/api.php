@@ -88,22 +88,14 @@ Route::get('/test-pusher', function(\Illuminate\Http\Request $request) {
 });
 
 Route::get('/test-mail', function(\Illuminate\Http\Request $request) {
-    $email = $request->query('email', 'nguyenchithong.209@gmail.com');
-    try {
-        \Illuminate\Support\Facades\Mail::raw('Chào bạn, đây là email kiểm tra (test email) từ Laravel trên Render!', function ($message) use ($email) {
-            $message->to($email)
-                ->subject('Laravel Mail Test');
-        });
-        return response()->json([
-            'success' => true,
-            'message' => 'Gửi mail test thành công đến ' . $email
-        ]);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Lỗi gửi mail: ' . $e->getMessage()
-        ], 500);
-    }
+    return response()->json([
+        'default_mailer' => config('mail.default'),
+        'env_mailer'     => env('MAIL_MAILER'),
+        'smtp_host'      => config('mail.mailers.smtp.host'),
+        'smtp_port'      => config('mail.mailers.smtp.port'),
+        'smtp_encrypt'   => config('mail.mailers.smtp.encryption'),
+        'resend_config'  => config('mail.mailers.resend'),
+    ]);
 });
 
 
