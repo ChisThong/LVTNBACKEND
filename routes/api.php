@@ -18,6 +18,7 @@ use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\AdminWalletController;
 use App\Http\Controllers\DanhGiaController;
 use App\Http\Controllers\ThongKeController;
+use App\Http\Controllers\ChatController;
 
 /*
 |--------------------------------------------------------------------------
@@ -148,6 +149,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('throttle:5,1')
         ->post('/vnpay/create-payment', [VNPayController::class, 'createPayment'])
         ->name('vnpay.createPayment');
+    //chat
+     Route::post('/chat/vao-phong', [ChatController::class, 'vaoPhongChat']);
+    Route::post('/chat/gui-tin-nhan', [ChatController::class, 'guiTinNhan']);
+    Route::get('/chat/phong/{idPhongChat}/tin-nhan', [ChatController::class, 'layTinNhan']);
 
     // ── ADMIN only ─────────────────────────────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {

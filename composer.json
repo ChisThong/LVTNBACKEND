@@ -13,7 +13,7 @@
         "laravel/tinker": "^2.10.1",
         "mservice/payment": "dev-master",
         "pusher/pusher-php-server": "^7.2",
-        "resend/resend-laravel": "*"
+        "resend/resend-laravel": "^1.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
