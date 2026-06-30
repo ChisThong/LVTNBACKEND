@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\AdminDonHangController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -154,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat/gui-tin-nhan', [ChatController::class, 'guiTinNhan']);
     Route::get('/chat/phong/{idPhongChat}/tin-nhan', [ChatController::class, 'layTinNhan']);
     Route::get('/chat/danh-sach-phong', [ChatController::class, 'layDanhSachPhongChat']);
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
     // ── ADMIN only ─────────────────────────────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
