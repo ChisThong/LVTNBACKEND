@@ -217,6 +217,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── NguoiBan only ──────────────────────────────────────────────────────
     Route::middleware('role:NguoiBan')->group(function () {
         Route::get('/seller/dashboard', [DashboardController::class, 'sellerDashboard'])->name('seller.dashboard');
+        Route::get('/seller/activities', [DashboardController::class, 'sellerActivities'])->name('seller.activities');
         Route::get('/seller/products',  [ProductController::class, 'sellerIndex'])->name('seller.products.index');
         Route::get('/seller/wallet',    [ShopController::class, 'getWallet'])->name('seller.wallet');
         Route::get('/seller/orders',    [ShopController::class, 'getOrders'])->name('seller.orders.index');

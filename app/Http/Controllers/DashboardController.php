@@ -422,4 +422,103 @@ class DashboardController extends Controller
             ],
         ]);
     }
+
+    /**
+     * Lấy danh sách các hoạt động/thông báo gần đây của Seller dynamically từ DB
+     * 
+     * GET /api/seller/activities
+     */
+    public function sellerActivities(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $shop = \App\Models\Shop::where('ID_User', $user->ID_User)->first();
+            if (!$shop) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có gian hàng.'
+                ], 403);
+            }
+
+            $activities = [];
+
+            // 1. Đơn hàng mới / Cập nhật trạng thái đơn
+            $recentOrders = \App\Models\DonHang::where('ID_Shop', $shop->ID_Shop)->with('nguoiMua')->orderBy('date', 'DESC')->take(15)->get();
+            foreach ($recentOrders as $order) {
+                $buyerName = $order->nguoiMua ? ($order->nguoiMua->HoTen ?: $order->nguoiMua->email) : 'Khách';
+                $statusText = 'Mới';
+                if ($order->TrangThai === 1) $statusText = 'Đã xác nhận';
+                if ($order->TrangThai === 2) $statusText = 'Đang giao';
+                if ($order->TrangThai === 3) $statusText = 'Hoàn tất';
+                if ($order->TrangThai === 4) $statusText = 'Đã hủy';
+
+                $activities[] = [
+                    'id' => 'order_' . $order->ID_DonHang . '_' . $order->TrangThai,
+                    'tieude' => "Đơn hàng của " . $buyerName . " ở trạng thái " . $statusText . " (Mã: " . $order->MaDonHangCon . ")",
+                    'thoigian' => $order->date ? $order->date->toIso8601String() : null,
+                    'timestamp' => $order->date ? $order->date->timestamp : 0,
+                    'trangthai' => $statusText,
+                    'type' => 'order',
+                ];
+            }
+
+            // 2. Đánh giá mới
+            $recentReviews = DB::table('danhgia')
+                ->join('sanpham', 'danhgia.ID_SanPham', '=', 'sanpham.ID_SanPham')
+                ->where('sanpham.ID_Shop', $shop->ID_Shop)
+                ->select('danhgia.*', 'sanpham.TenSanPham')
+                ->orderBy('danhgia.ThoiGian', 'DESC')
+                ->take(15)
+                ->get();
+
+            foreach ($recentReviews as $rev) {
+                $activities[] = [
+                    'id' => 'review_' . $rev->ID_DanhGia,
+                    'tieude' => "Đánh giá " . $rev->XepLoai . " sao cho sản phẩm: " . $rev->TenSanPham,
+                    'thoigian' => $rev->ThoiGian ? \Carbon\Carbon::parse($rev->ThoiGian)->toIso8601String() : null,
+                    'timestamp' => $rev->ThoiGian ? \Carbon\Carbon::parse($rev->ThoiGian)->timestamp : 0,
+                    'trangthai' => 'Mới',
+                    'type' => 'review',
+                ];
+            }
+
+            // 3. Sản phẩm bị ẩn/duyệt
+            $recentProducts = \App\Models\Product::where('ID_Shop', $shop->ID_Shop)
+                ->whereNotNull('TrangThaiDuyet')
+                ->orderBy('updated_at', 'DESC')
+                ->take(15)
+                ->get();
+
+            foreach ($recentProducts as $prod) {
+                $statusText = $prod->TrangThaiDuyet === 'da_duyet' ? 'Đã duyệt' : ($prod->TrangThaiDuyet === 'tu_choi' ? 'Từ chối' : 'Chờ duyệt');
+                $activities[] = [
+                    'id' => 'product_' . $prod->ID_SanPham . '_' . $prod->TrangThaiDuyet,
+                    'tieude' => "Sản phẩm \"" . $prod->TenSanPham . "\" có trạng thái: " . $statusText,
+                    'thoigian' => $prod->updated_at ? $prod->updated_at->toIso8601String() : null,
+                    'timestamp' => $prod->updated_at ? $prod->updated_at->timestamp : 0,
+                    'trangthai' => $statusText,
+                    'type' => 'product',
+                ];
+            }
+
+            // Sắp xếp giảm dần theo thời gian
+            usort($activities, function ($a, $b) {
+                return $b['timestamp'] <=> $a['timestamp'];
+            });
+
+            // Giới hạn 20 thông báo gần nhất
+            $activities = array_slice($activities, 0, 20);
+
+            return response()->json([
+                'success' => true,
+                'data' => $activities
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi lấy thông báo hoạt động: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }
