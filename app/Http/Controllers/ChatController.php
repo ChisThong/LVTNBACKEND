@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\PhongChat;
 use App\Models\TinNhan;
 use App\Events\Message;
+use App\Models\Shop;
 
 class ChatController extends Controller
 {
@@ -91,18 +92,37 @@ class ChatController extends Controller
     }
 
     /**
-     * 4. HÀM LẤY DANH SÁCH PHÒNG CHAT CỦA USER
+     * 4. HÀM LẤY DANH SÁCH PHÒNG CHAT CỦA USER HOẶC SHOP
      */
     public function layDanhSachPhongChat(Request $request)
     {
         $idUser = Auth::id();
+        $isSeller = $request->query('role') === 'seller';
 
-        // Lấy tất cả các phòng chat của user hiện tại, kèm thông tin của Shop
-        $danhSach = PhongChat::where('phongchat.ID_User', $idUser)
-            ->leftJoin('shop', 'phongchat.ID_Shop', '=', 'shop.ID_Shop')
-            ->select('phongchat.*', 'shop.TenShop', 'shop.logo as shop_logo')
-            ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
-            ->get();
+        if ($isSeller) {
+            // Lấy shop của user này
+            $shop = Shop::where('ID_User', $idUser)->first();
+            if (!$shop) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có gian hàng.'
+                ], 403);
+            }
+
+            // Lấy các phòng chat của shop này, kèm thông tin của Buyer (người dùng)
+            $danhSach = PhongChat::where('phongchat.ID_Shop', $shop->ID_Shop)
+                ->leftJoin('user', 'phongchat.ID_User', '=', 'user.ID_User')
+                ->select('phongchat.*', 'user.HoTen as ten_khach_hang', 'user.email as email_khach_hang')
+                ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
+                ->get();
+        } else {
+            // Lấy tất cả các phòng chat của user hiện tại (Buyer), kèm thông tin của Shop
+            $danhSach = PhongChat::where('phongchat.ID_User', $idUser)
+                ->leftJoin('shop', 'phongchat.ID_Shop', '=', 'shop.ID_Shop')
+                ->select('phongchat.*', 'shop.TenShop', 'shop.logo as shop_logo')
+                ->orderBy('phongchat.ThoiGianCapNhat', 'desc')
+                ->get();
+        }
 
         return response()->json([
             'success' => true,
