@@ -88,14 +88,22 @@ Route::get('/test-pusher', function(\Illuminate\Http\Request $request) {
 });
 
 Route::get('/test-mail', function(\Illuminate\Http\Request $request) {
-    return response()->json([
-        'default_mailer' => config('mail.default'),
-        'env_mailer'     => env('MAIL_MAILER'),
-        'smtp_host'      => config('mail.mailers.smtp.host'),
-        'smtp_port'      => config('mail.mailers.smtp.port'),
-        'smtp_encrypt'   => config('mail.mailers.smtp.encryption'),
-        'resend_config'  => config('mail.mailers.resend'),
-    ]);
+    $email = $request->query('email', 'nguyenchithong.209@gmail.com');
+    try {
+        \Illuminate\Support\Facades\Mail::raw('Chào bạn, đây là email kiểm tra (test email) gửi qua Resend HTTP API từ Laravel trên Render!', function ($message) use ($email) {
+            $message->to($email)
+                ->subject('Laravel Mail Test via Resend');
+        });
+        return response()->json([
+            'success' => true,
+            'message' => 'Gửi mail test qua Resend thành công đến ' . $email
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Lỗi gửi mail qua Resend: ' . $e->getMessage()
+        ], 500);
+    }
 });
 
 
