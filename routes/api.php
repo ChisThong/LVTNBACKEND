@@ -39,16 +39,18 @@ use App\Http\Controllers\ThongKeController;
 Route::prefix('auth')->group(function () {
     // Nhóm 1: Tối đa 10 request/phút (Ngăn chặn dò mật khẩu, spam đăng ký)
     Route::middleware('throttle:10,1')->group(function () {
-        Route::post('/register',   [AuthController::class, 'register'])->name('auth.register');
-        Route::post('/login',      [AuthController::class, 'login'])->name('auth.login');
+        Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
+        Route::post('/login',    [AuthController::class, 'login'])->name('auth.login');
+
+        // ── Google OAuth2: Đăng nhập / Đăng ký bằng Google ─────────────────
+        // Frontend gửi credential (Google ID Token), backend xác minh và cấp Sanctum token.
+        Route::post('/google',   [AuthController::class, 'loginWithGoogle'])->name('auth.google');
     });
 
     // Nhóm 2: Tối đa 5 request/phút (Ngăn chặn spam tin nhắn/email OTP)
     Route::middleware('throttle:5,1')->group(function () {
-        Route::post('/verify-otp', [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
-        Route::post('/resend-otp', [AuthController::class, 'resendOtp'])->name('auth.resend-otp');
-
-        // Sẵn sàng cho API Quên mật khẩu
+        Route::post('/verify-otp',      [AuthController::class, 'verifyOtp'])->name('auth.verify-otp');
+        Route::post('/resend-otp',      [AuthController::class, 'resendOtp'])->name('auth.resend-otp');
         Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot-password');
         Route::post('/reset-password',  [AuthController::class, 'resetPassword'])->name('auth.reset-password');
     });
@@ -104,7 +106,7 @@ Route::post('/vnpay/order-ipn', [DonHangController::class, 'vnpayIpn'])->name('v
 // ═══════════════════════════════════════════════════════════════════════════
 // PROTECTED — Cần Bearer Token (auth:sanctum)
 // ═══════════════════════════════════════════════════════════════════════════
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
 
     // ── Auth chung ─────────────────────────────────────────────────────────
     Route::post('/auth/logout', [AuthController::class, 'logout'])->name('auth.logout');

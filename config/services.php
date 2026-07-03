@@ -44,4 +44,10 @@ return [
         'frontend_return_url'  => env('VNP_FRONTEND_RETURN_URL', 'http://localhost:5173/thanh-toan-thanh-cong'),
     ],
 
+    // ── Google OAuth2 ────────────────────────────────────────────────────────
+    // Sử dụng để xác minh audience (aud) của Google ID Token trong AuthController
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+    ],
+
 ];
