@@ -40,6 +40,8 @@ class User extends Authenticatable
         'TrangThai',
         'ngaydangki',
         'ID_role',
+        'google_id',   // Google OAuth2: sub claim
+        'avatar',      // URL ảnh đại diện từ Google hoặc upload
     ];
 
     /**

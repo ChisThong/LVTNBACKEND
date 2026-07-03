@@ -8,15 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
-    /**
-     * Kiểm tra user có role được phép hay không.
-     *
-     * Cách dùng trong route:
-     *   ->middleware('role:Admin')
-     *   ->middleware('role:Admin,NguoiBan')
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
+
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
