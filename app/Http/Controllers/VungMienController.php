@@ -15,7 +15,7 @@ class VungMienController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Map::with('tinhThanh');
+            $query = Map::with(['tinhThanh', 'xa', 'ap']);
 
             if ($request->filled('ID_Ap')) {
                 $query->where('ID_ap', $request->ID_Ap);

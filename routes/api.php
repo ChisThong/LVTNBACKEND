@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\AdminDonHangController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\DashboardController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\VNPayController;
 use App\Http\Controllers\AdminWalletController;
 use App\Http\Controllers\DanhGiaController;
 use App\Http\Controllers\ThongKeController;
+use App\Http\Controllers\ChatController;
 
 /*
 |--------------------------------------------------------------------------
@@ -89,6 +91,25 @@ Route::get('/test-pusher', function(\Illuminate\Http\Request $request) {
     return "Đã bắn tín hiệu test AdminActivityEvent!";
 });
 
+Route::get('/test-mail', function(\Illuminate\Http\Request $request) {
+    $email = $request->query('email', 'nguyenchithong.209@gmail.com');
+    try {
+        \Illuminate\Support\Facades\Mail::raw('Chào bạn, đây là email kiểm tra (test email) gửi qua Resend HTTP API từ Laravel trên Render!', function ($message) use ($email) {
+            $message->to($email)
+                ->subject('Laravel Mail Test via Resend');
+        });
+        return response()->json([
+            'success' => true,
+            'message' => 'Gửi mail test qua Resend thành công đến ' . $email
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Lỗi gửi mail qua Resend: ' . $e->getMessage()
+        ], 500);
+    }
+});
+
 
 // ── Shop — Public ──────────────────────────────────────────────────────────
 Route::get('/shops/{id}', [ShopController::class, 'publicShow']);
@@ -131,6 +152,13 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     Route::middleware('throttle:5,1')
         ->post('/vnpay/create-payment', [VNPayController::class, 'createPayment'])
         ->name('vnpay.createPayment');
+    //chat
+     Route::post('/chat/vao-phong', [ChatController::class, 'vaoPhongChat']);
+    Route::post('/chat/gui-tin-nhan', [ChatController::class, 'guiTinNhan']);
+    Route::get('/chat/phong/{idPhongChat}/tin-nhan', [ChatController::class, 'layTinNhan']);
+    Route::get('/chat/danh-sach-phong', [ChatController::class, 'layDanhSachPhongChat']);
+    Route::get('/chat/so-tin-chua-doc', [ChatController::class, 'soTinChuaDoc']);
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
     // ── ADMIN only ─────────────────────────────────────────────────────────
     Route::middleware('role:Admin')->prefix('admin')->group(function () {
@@ -191,6 +219,7 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     // ── NguoiBan only ──────────────────────────────────────────────────────
     Route::middleware('role:NguoiBan')->group(function () {
         Route::get('/seller/dashboard', [DashboardController::class, 'sellerDashboard'])->name('seller.dashboard');
+        Route::get('/seller/activities', [DashboardController::class, 'sellerActivities'])->name('seller.activities');
         Route::get('/seller/products',  [ProductController::class, 'sellerIndex'])->name('seller.products.index');
         Route::get('/seller/wallet',    [ShopController::class, 'getWallet'])->name('seller.wallet');
         Route::get('/seller/orders',    [ShopController::class, 'getOrders'])->name('seller.orders.index');
