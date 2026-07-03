@@ -14,8 +14,14 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
-        // Đăng ký alias middleware CheckRole
-        // Đăng ký alias middleware CheckAccountStatus (kiểm tra tài khoản bị khóa)
+        
+        // Loại trừ kiểm tra CSRF cho các route đăng nhập Google API Stateless
+        $middleware->validateCsrfTokens(except: [
+            'api/auth/google',
+            'api/auth/google/callback',
+        ]);
+
+        // Đăng ký alias middleware CheckRole và CheckAccountStatus
         $middleware->alias([
             'role'         => \App\Http\Middleware\CheckRole::class,
             'check.status' => \App\Http\Middleware\CheckAccountStatus::class,

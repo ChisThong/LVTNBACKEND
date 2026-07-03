@@ -6,21 +6,10 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * CheckAccountStatus – Middleware kiểm tra trạng thái tài khoản.
- *
- * Áp dụng sau middleware auth:sanctum (user đã được xác thực token).
- * Chặn tất cả request từ tài khoản có TrangThai = 2 (bị khóa).
- *
- * Cách đăng ký:
- *   bootstrap/app.php → alias 'check.status'
- *   routes/api.php    → áp dụng vào nhóm auth:sanctum
- */
+
 class CheckAccountStatus
 {
-    /**
-     * Hằng số trạng thái — đồng bộ với NguoiDungController::changeclock()
-     */
+
     private const STATUS_BANNED = 2;
 
     /**
