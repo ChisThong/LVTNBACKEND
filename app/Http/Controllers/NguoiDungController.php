@@ -70,21 +70,4 @@ class NguoiDungController extends Controller
             ],500);
         }
     }
-    public function capquyenadmin(String $id){
-     try{
-            $user=User::findOrFail($id);
-            $user->ID_role=1;
-            $user->save();
-           
-            return response()->json([
-                'success'=>true,
-                'message'=>'Cấp quyền admin thành công'
-            ],200);
-        }catch(\Exception $e){
-            return response()->json([
-                'success'=>false,
-                'message'=>'Lỗi hệ thống: '.$e->getMessage()
-            ],500);
-        }
-    }
 }

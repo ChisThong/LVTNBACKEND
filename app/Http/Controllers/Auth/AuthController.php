@@ -220,14 +220,6 @@ class AuthController extends Controller
     // ──────────────────────────────────────────────────────────────────────
     /**
      * Đăng nhập / Đăng ký bằng Google OAuth2.
-     *
-     * Flow:
-     *   1. Frontend gửi lên `credential` (Google ID Token – JWT chuẩn).
-     *   2. Backend xác minh token qua Google tokeninfo endpoint (không cần thư viện thêm).
-     *   3. Lấy: sub (google_id), email, name, picture.
-     *   4. Tìm user theo email:
-     *      - Đã tồn tại  → kiểm tra trạng thái → đăng nhập.
-     *      - Chưa tồn tại → tạo user mới (TrangThai=1, ID_role=2) → đăng nhập.
      */
     public function loginWithGoogle(Request $request): JsonResponse
     {
@@ -238,13 +230,9 @@ class AuthController extends Controller
         ]);
 
         $credential = $request->input('credential');
-
-        // ── Phân biệt: ID Token (JWT, dài ~1000 ký tự) hay Access Token ──────
-        // JWT ID Token có dạng: xxxxx.yyyyy.zzzzz (3 phần cách nhau bằng dấu chấm)
         $isIdToken = (substr_count($credential, '.') === 2);
 
         if ($isIdToken) {
-            // ── Xác minh ID Token qua tokeninfo endpoint ────────────────────
             try {
                 $googleResponse = Http::timeout(10)
                     ->get('https://oauth2.googleapis.com/tokeninfo?id_token=' . $credential);
@@ -264,7 +252,6 @@ class AuthController extends Controller
 
             $googleData = $googleResponse->json();
 
-            // Kiểm tra audience khớp Client ID
             $expectedClientId = config('services.google.client_id');
             if ($expectedClientId && isset($googleData['aud']) && $googleData['aud'] !== $expectedClientId) {
                 return response()->json([
@@ -274,7 +261,6 @@ class AuthController extends Controller
             }
 
         } else {
-            // ── Xác minh Access Token qua userinfo endpoint ─────────────────
             try {
                 $googleResponse = Http::timeout(10)
                     ->withHeaders(['Authorization' => 'Bearer ' . $credential])
@@ -479,7 +465,18 @@ class AuthController extends Controller
 
         $user = $request->user();
 
+        // Kiểm tra mật khẩu cũ có đúng không
         if (! Hash::check($request->old_password, $user->matkhau)) {
+            // Nếu user có google_id → khả năng là thuần Google (không biết mật khẩu)
+            // → Trả message hướng dẫn rõ ràng hơn
+            if ($user->google_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Tài khoản liên kết Google không thể đổi mật khẩu theo cách này. '
+                               . 'Vui lòng dùng chức năng "Quên mật khẩu" để đặt mật khẩu mới.',
+                ], 400);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Mật khẩu cũ không chính xác.',

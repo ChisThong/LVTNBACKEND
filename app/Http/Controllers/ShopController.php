@@ -534,7 +534,7 @@ class ShopController extends Controller
                 return response()->json(['success' => false, 'message' => 'Bạn chưa có gian hàng.'], 403);
             }
 
-            $donHangs = \App\Models\DonHang::with(['chiTiet.sanPham', 'donHangTong', 'nguoiMua'])
+            $donHangs = \App\Models\DonHang::with(['chiTiet.sanPham.hinhAnh', 'donHangTong', 'nguoiMua'])
                 ->where('ID_Shop', $shop->ID_Shop)
                 ->orderBy('ID_DonHang', 'desc')
                 ->get();

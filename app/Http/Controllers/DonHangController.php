@@ -7,7 +7,7 @@ use App\Models\ChiTietDonHang;
 use App\Models\DonHang;
 use App\Models\Product;
 use App\Models\DonHangTong;
-use App\Services\VNPayService; // Đảm bảo bạn đã tạo file VNPayService
+use App\Services\VNPayService; 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -534,67 +534,144 @@ class DonHangController extends Controller
             $donHang->save();
 
             // ── 4. KÍCH HOẠT LUỒNG CHIA TIỀN TỰ ĐỘNG ──────────────────────────
-            $tongGia    = $donHang->TongGia + $donHang->PhiVanChuyen;
-            $commission = $tongGia * 0.05;       // 5%  → Admin (hoa hồng sàn)
-            $sellerAmt  = $tongGia - $commission; // 95% → Seller
+            $tongGia      = $donHang->TongGia + $donHang->PhiVanChuyen;
+            $commission   = $tongGia * 0.05;        // 5%  → Admin (hoa hồng sàn)
+            $sellerAmt    = $tongGia - $commission;  // 95% → Seller (chỉ dùng cho thanh toán trả trước)
 
-            $adminUserId  = 6; // ID Admin cố định (đồng bộ với AdminDonHangController)
+            $adminUserId  = 6; // ID Admin cố định
             $sellerUserId = $donHang->shop?->ID_User;
 
-            if ($sellerUserId) {
-                // 4a. Cộng 95% vào Ví Seller
-                $sellerWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $sellerUserId]);
-                $sellerWallet = \App\Models\Wallet::lockForUpdate()->find($sellerWallet->id);
+            // Xác định phương thức thanh toán của đơn hàng tổng
+            $donHangTong    = $donHang->donHangTong;
+            $phuongThuc     = $donHangTong?->PhuongThucThanhToan ?? 'COD';
+            $isTraTruoc     = in_array($phuongThuc, ['VNPAY', 'WALLET']); // Đã thanh toán trước qua platform
 
-                $beforeSeller = $sellerWallet->balance;
-                $sellerWallet->balance += $sellerAmt;
-                $sellerWallet->save();
+            if ($isTraTruoc) {
+                // ── LUỒNG TRẢ TRƯỚC (VNPAY / WALLET) ─────────────────────────
+                // Platform đã giữ tiền → chia 95% cho Seller + 5% cho Admin
+
+                if ($sellerUserId) {
+                    // 4a. Cộng 95% vào Ví Seller
+                    $sellerWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $sellerUserId]);
+                    $sellerWallet = \App\Models\Wallet::lockForUpdate()->find($sellerWallet->id);
+
+                    $beforeSeller = $sellerWallet->balance;
+                    $sellerWallet->balance += $sellerAmt;
+                    $sellerWallet->save();
+
+                    \App\Models\WalletTransaction::create([
+                        'wallet_id'      => $sellerWallet->id,
+                        'type'           => 'release',
+                        'status'         => 'success',
+                        'amount'         => $sellerAmt,
+                        'balance_before' => $beforeSeller,
+                        'balance_after'  => $sellerWallet->balance,
+                        'reference_type' => 'donhang_seller',
+                        'reference_id'   => $donHang->ID_DonHang,
+                    ]);
+                }
+
+                // 4b. Cộng 5% hoa hồng vào Ví Admin
+                $adminWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $adminUserId]);
+                $adminWallet = \App\Models\Wallet::lockForUpdate()->find($adminWallet->id);
+
+                $beforeAdmin = $adminWallet->balance;
+                $adminWallet->balance += $commission;
+                $adminWallet->save();
 
                 \App\Models\WalletTransaction::create([
-                    'wallet_id'      => $sellerWallet->id,
-                    'type'           => 'release',
+                    'wallet_id'      => $adminWallet->id,
+                    'type'           => 'commission',
                     'status'         => 'success',
-                    'amount'         => $sellerAmt,
-                    'balance_before' => $beforeSeller,
-                    'balance_after'  => $sellerWallet->balance,
-                    'reference_type' => 'donhang_seller',
+                    'amount'         => $commission,
+                    'balance_before' => $beforeAdmin,
+                    'balance_after'  => $adminWallet->balance,
+                    'reference_type' => 'donhang_admin',
                     'reference_id'   => $donHang->ID_DonHang,
                 ]);
+
+            } else {
+                // ── LUỒNG COD (Tiền mặt khi nhận hàng) ───────────────────────
+                // Seller đã nhận tiền mặt trực tiếp từ khách.
+                // Platform KHÔNG có tiền để chia → chỉ thu 5% hoa hồng từ ví Seller.
+
+                if ($sellerUserId) {
+                    $sellerWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $sellerUserId]);
+                    $sellerWallet = \App\Models\Wallet::lockForUpdate()->find($sellerWallet->id);
+
+                    if ($sellerWallet->balance >= $commission) {
+                        // Seller đủ số dư → trừ ngay
+                        $beforeSeller = $sellerWallet->balance;
+                        $sellerWallet->balance -= $commission;
+                        $sellerWallet->save();
+
+                        \App\Models\WalletTransaction::create([
+                            'wallet_id'      => $sellerWallet->id,
+                            'type'           => 'commission',
+                            'status'         => 'success',
+                            'amount'         => -$commission, // Âm = bị trừ
+                            'balance_before' => $beforeSeller,
+                            'balance_after'  => $sellerWallet->balance,
+                            'reference_type' => 'donhang_cod_commission',
+                            'reference_id'   => $donHang->ID_DonHang,
+                        ]);
+
+                        // Cộng hoa hồng vào ví Admin
+                        $adminWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $adminUserId]);
+                        $adminWallet = \App\Models\Wallet::lockForUpdate()->find($adminWallet->id);
+
+                        $beforeAdmin = $adminWallet->balance;
+                        $adminWallet->balance += $commission;
+                        $adminWallet->save();
+
+                        \App\Models\WalletTransaction::create([
+                            'wallet_id'      => $adminWallet->id,
+                            'type'           => 'commission',
+                            'status'         => 'success',
+                            'amount'         => $commission,
+                            'balance_before' => $beforeAdmin,
+                            'balance_after'  => $adminWallet->balance,
+                            'reference_type' => 'donhang_cod_commission',
+                            'reference_id'   => $donHang->ID_DonHang,
+                        ]);
+                    } else {
+                        // Seller không đủ số dư → ghi nhận nợ hoa hồng (trạng thái pending)
+                        \App\Models\WalletTransaction::create([
+                            'wallet_id'      => $sellerWallet->id,
+                            'type'           => 'commission',
+                            'status'         => 'pending', // Chờ seller nạp thêm để trả
+                            'amount'         => -$commission,
+                            'balance_before' => $sellerWallet->balance,
+                            'balance_after'  => $sellerWallet->balance, // Chưa trừ
+                            'reference_type' => 'donhang_cod_commission',
+                            'reference_id'   => $donHang->ID_DonHang,
+                        ]);
+                    }
+                }
             }
 
-            // 4b. Cộng 5% hoa hồng vào Ví Admin
-            $adminWallet = \App\Models\Wallet::firstOrCreate(['user_id' => $adminUserId]);
-            $adminWallet = \App\Models\Wallet::lockForUpdate()->find($adminWallet->id);
-
-            $beforeAdmin = $adminWallet->balance;
-            $adminWallet->balance += $commission;
-            $adminWallet->save();
-
-            \App\Models\WalletTransaction::create([
-                'wallet_id'      => $adminWallet->id,
-                'type'           => 'commission',
-                'status'         => 'success',
-                'amount'         => $commission,
-                'balance_before' => $beforeAdmin,
-                'balance_after'  => $adminWallet->balance,
-                'reference_type' => 'donhang_admin',
-                'reference_id'   => $donHang->ID_DonHang,
-            ]);
-
-            // 4c. Nếu là COD: cập nhật trạng thái thanh toán → Đã thanh toán
-            $donHangTong = $donHang->donHangTong;
+            // 4c. Nếu là COD: chỉ cập nhật "Đã thanh toán" khi TẤT CẢ đơn con đều Hoàn tất
             if ($donHangTong) {
                 $thanhToan = \App\Models\ThanhToan::where('ID_DonHangTong', $donHangTong->ID_DonHangTong)
                     ->where('PhuongThuc', 'COD')
                     ->first();
 
                 if ($thanhToan && $thanhToan->TrangThai == 0) {
-                    $thanhToan->TrangThai = 1; // Đã thanh toán
-                    $thanhToan->Date = now();
-                    $thanhToan->save();
+                    // Kiểm tra xem còn đơn con nào chưa Hoàn tất không
+                    $conDonChuaHoanTat = \App\Models\DonHang::where('ID_DonHangTong', $donHangTong->ID_DonHangTong)
+                        ->where('TrangThai', '!=', DonHang::TRANG_THAI_HOAN_TAT)
+                        ->where('TrangThai', '!=', DonHang::TRANG_THAI_HUY)
+                        ->count();
 
-                    $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
-                    $donHangTong->save();
+                    // Chỉ đánh dấu "Đã thanh toán" khi không còn đơn con nào chưa hoàn tất
+                    if ($conDonChuaHoanTat === 0) {
+                        $thanhToan->TrangThai = 1; // Đã thanh toán
+                        $thanhToan->Date = now();
+                        $thanhToan->save();
+
+                        $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                        $donHangTong->save();
+                    }
                 }
             }
 
