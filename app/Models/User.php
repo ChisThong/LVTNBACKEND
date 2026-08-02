@@ -54,6 +54,11 @@ class User extends Authenticatable
     ];
 
     /**
+     * Các trường computed thêm vào JSON response.
+     */
+    protected $appends = ['has_password'];
+
+    /**
      * Kiểu dữ liệu cast cho các trường.
      *
      * @return array<string, string>
@@ -75,6 +80,17 @@ class User extends Authenticatable
     public function getAuthPassword(): string
     {
         return $this->matkhau;
+    }
+
+    /**
+     * Computed attribute: user có mật khẩu hay không.
+     * Trả về true  → đăng ký bằng email/pass (có thể đổi mật khẩu).
+     * Trả về false → đăng ký thuần Google, chưa bao giờ set pass.
+     */
+    public function getHasPasswordAttribute(): bool
+    {
+        return isset($this->attributes['matkhau'])
+            && !empty($this->attributes['matkhau']);
     }
 
     /**

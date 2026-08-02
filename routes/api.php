@@ -20,6 +20,7 @@ use App\Http\Controllers\AdminWalletController;
 use App\Http\Controllers\DanhGiaController;
 use App\Http\Controllers\ThongKeController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\GioHangController;
 
 /*
 |--------------------------------------------------------------------------
@@ -135,6 +136,14 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     Route::post('/auth/change-password', [AuthController::class, 'changePassword'])->name('auth.change-password');
     Route::put('/auth/update-profile',   [AuthController::class, 'updateProfile'])->name('auth.update-profile');
 
+    // ── Giỏ hàng ──────────────────────────────────────────────────────────
+    Route::get('/cart',              [GioHangController::class, 'index'])->name('cart.index');
+    Route::post('/cart',             [GioHangController::class, 'addOrUpdate'])->name('cart.add');
+    Route::post('/cart/sync',        [GioHangController::class, 'sync'])->name('cart.sync');
+    Route::put('/cart/{idSanPham}',  [GioHangController::class, 'update'])->name('cart.update');
+    Route::delete('/cart/{idSanPham}', [GioHangController::class, 'remove'])->name('cart.remove');
+    Route::delete('/cart',           [GioHangController::class, 'clear'])->name('cart.clear');
+
     // ── Đơn hàng (Đã gộp thành công của cả HEAD và main) ───────────────────
     Route::get('/don-hang',                      [DonHangController::class, 'index'])->name('donhang.index');
     Route::get('/don-hang/{id}',                 [DonHangController::class, 'show'])->name('donhang.show');
@@ -195,10 +204,11 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         // Quản lý người dùng
         Route::get('/Nguoidung',                    [NguoiDungController::class, 'index']);
         Route::put('/Nguoidung/{id}/ChangeClock',   [NguoiDungController::class, 'changeclock']);
-        Route::put('/Nguoidung/capquyen/{id}',      [NguoiDungController::class, 'capquyenadmin']);
+
 
         // Wallet Admin
         Route::get('/wallet/stats',               [AdminWalletController::class, 'stats']);
+        Route::get('/wallet/transactions',        [AdminWalletController::class, 'transactions']);
         Route::get('/wallet/withdrawals',         [AdminWalletController::class, 'withdrawals']);
         Route::put('/wallet/withdrawals/{id}',    [AdminWalletController::class, 'processWithdrawal']);
 
@@ -238,10 +248,14 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     Route::put('/seller/shop',           [ShopController::class, 'update'])->name('seller.shop.update');
     Route::post('/seller/shop/register', [ShopController::class, 'register'])->name('seller.shop.register');
 
+    // ── Tạo đơn hàng — Cho phép cả NguoiMua và NguoiBan ──────────────────
+    Route::middleware('role:NguoiMua,NguoiBan')->group(function () {
+        Route::post('/don-hang', [DonHangController::class, 'store'])->name('donhang.store');
+    });
+
     // ── NguoiMua only ──────────────────────────────────────────────────────
     Route::middleware('role:NguoiMua')->group(function () {
         Route::get('/buyer/dashboard', [DashboardController::class, 'buyerDashboard'])->name('buyer.dashboard');
-        Route::post('/don-hang',       [DonHangController::class, 'store'])->name('donhang.store');
     });
 
 });
