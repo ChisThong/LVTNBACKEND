@@ -78,6 +78,18 @@ class DonHangController extends Controller
                 'Ngaydat'             => now(),
             ]);
 
+            // Cập nhật tự động SĐT và Địa chỉ vào tài khoản User nếu thông tin thay đổi hoặc chưa có
+            $userUpdates = [];
+            if (!empty($request->SDTNhanHang) && $user->sdt !== $request->SDTNhanHang) {
+                $userUpdates['sdt'] = $request->SDTNhanHang;
+            }
+            if (!empty($request->DiaChiGiao) && $user->diachi !== $request->DiaChiGiao) {
+                $userUpdates['diachi'] = $request->DiaChiGiao;
+            }
+            if (!empty($userUpdates)) {
+                $user->update($userUpdates);
+            }
+
             // ── 3.5. Xử lý logic thanh toán bằng Ví (WALLET) ───────────────
             if ($phuongThuc === 'WALLET') {
                 try {
@@ -168,12 +180,10 @@ class DonHangController extends Controller
             if ($phuongThuc === 'VNPAY') {
                 // Khởi tạo VNPayService từ container để lấy URL thanh toán
                 $vnpayService = app(\App\Services\VNPayService::class);
-                // Giả định hàm generateUrl lấy theo ID đơn hàng
-                if (method_exists($vnpayService, 'generateUrl')) {
-                    $vnpayUrl = $vnpayService->generateUrl($donHangTong->ID_DonHangTong);
-                } else if (method_exists($vnpayService, 'createPaymentUrl')) {
+                $txnRef = 'DH_' . $donHangTong->ID_DonHangTong . '_' . time();
+                if (method_exists($vnpayService, 'createPaymentUrl')) {
                     $vnpayUrl = $vnpayService->createPaymentUrl(
-                        $donHangTong->ID_DonHangTong, 
+                        $txnRef, 
                         $tongTienToanBo, 
                         "Thanh toan don hang {$donHangTong->ID_DonHangTong}", 
                         $request->ip(), 
@@ -280,6 +290,85 @@ class DonHangController extends Controller
     }
 
     /**
+     * Thanh toán lại cho đơn hàng chưa thanh toán.
+     * POST /api/don-hang/{id}/repay
+     */
+    public function repay(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+
+        $donHangTong = DonHangTong::where('ID_DonHangTong', $id)
+            ->where('ID_User', $user->ID_User)
+            ->first();
+
+        if (!$donHangTong) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Không tìm thấy đơn hàng.'
+            ], 404);
+        }
+
+        if ($donHangTong->TrangThaiThanhToan == DonHangTong::THANH_TOAN_DA_THANH_TOAN) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Đơn hàng này đã được thanh toán trước đó.'
+            ], 400);
+        }
+
+        $phuongThuc = $request->input('PhuongThucThanhToan', 'VNPAY');
+
+        if ($phuongThuc === 'WALLET') {
+            try {
+                $walletService = app(\App\Services\WalletService::class);
+                $walletService->payment(
+                    $user->ID_User,
+                    $donHangTong->TongGiaTien,
+                    'order',
+                    (string)$donHangTong->ID_DonHangTong
+                );
+
+                $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                $donHangTong->PhuongThucThanhToan = 'WALLET';
+                $donHangTong->save();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Thanh toán thành công qua Ví!'
+                ]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 422);
+            }
+        }
+
+        // Mặc định hoặc chọn VNPAY
+        try {
+            $vnpayService = app(\App\Services\VNPayService::class);
+            $txnRef = 'DH_' . $donHangTong->ID_DonHangTong . '_' . time();
+            $vnpayUrl = $vnpayService->createPaymentUrl(
+                $txnRef,
+                (int)$donHangTong->TongGiaTien,
+                "Thanh toan lai don hang {$donHangTong->ID_DonHangTong}",
+                $request->ip() ?: '127.0.0.1',
+                $user->ID_User
+            );
+
+            return response()->json([
+                'success'   => true,
+                'message'   => 'Tạo liên kết thanh toán VNPay thành công.',
+                'vnpay_url' => $vnpayUrl
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Khởi tạo thanh toán VNPay thất bại: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * IPN Callback xử lý thanh toán VNPay cho Đơn hàng.
      * POST /api/vnpay/order-ipn
      */
@@ -307,8 +396,9 @@ class DonHangController extends Controller
             return response()->json(['RspCode' => '01', 'Message' => 'Order Not Found']);
         }
 
-        // Bóc tách ID Đơn Hàng Tổng (vnp_TxnRef = ID_DonHangTong)
-        $idDonHangTong = $txnRef;
+        // Bóc tách ID Đơn Hàng Tổng (vnp_TxnRef dạng DH_{ID_DonHangTong}_{timestamp} hoặc ID_DonHangTong)
+        $parts = explode('_', $txnRef);
+        $idDonHangTong = (count($parts) >= 2 && $parts[0] === 'DH') ? $parts[1] : $txnRef;
 
         try {
             DB::beginTransaction();

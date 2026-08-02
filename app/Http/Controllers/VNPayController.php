@@ -150,25 +150,41 @@ class VNPayController extends Controller
         // Bước 2: Kiểm tra kết quả giao dịch
         if ($responseCode === '00') {
             try {
-                // Bước 3: Cộng tiền vào ví (idempotent — WalletService tự lock)
-                $this->walletService->confirmDeposit('vnpay', $txnRef, $amount);
+                if (str_starts_with($txnRef, 'DH_')) {
+                    $parts = explode('_', $txnRef);
+                    $idDonHangTong = $parts[1] ?? null;
+                    if ($idDonHangTong) {
+                        $donHangTong = \App\Models\DonHangTong::find($idDonHangTong);
+                        if ($donHangTong && $donHangTong->TrangThaiThanhToan != \App\Models\DonHangTong::THANH_TOAN_DA_THANH_TOAN) {
+                            $donHangTong->TrangThaiThanhToan = \App\Models\DonHangTong::THANH_TOAN_DA_THANH_TOAN;
+                            $donHangTong->PhuongThucThanhToan = 'VNPAY';
+                            $donHangTong->save();
+                        }
+                    }
+                } else {
+                    // Bước 3: Cộng tiền vào ví (nếu là giao dịch nạp ví)
+                    $this->walletService->confirmDeposit('vnpay', $txnRef, $amount);
+                }
 
-                Log::channel('vnpay')->info('[VNPayController][vnpayReturn] Deposit confirmed', [
+                Log::channel('vnpay')->info('[VNPayController][vnpayReturn] Payment confirmed', [
                     'txnRef' => $txnRef,
                     'amount' => $amount,
                 ]);
             } catch (\Exception $e) {
-                // IPN đã xử lý trước → không phải lỗi, bỏ qua
                 Log::channel('vnpay')->info('[VNPayController][vnpayReturn] Already processed (IPN done first)', [
                     'txnRef' => $txnRef,
                     'info'   => $e->getMessage(),
                 ]);
             }
 
+            $transactionNo = $data['vnp_TransactionNo'] ?? '';
             // Bước 4: Redirect thành công về React
             return redirect()->to(
                 $frontendBase
                 . '?status=success'
+                . '&vnp_ResponseCode=00'
+                . '&vnp_TransactionNo=' . urlencode($transactionNo)
+                . '&vnp_Amount=' . urlencode($data['vnp_Amount'] ?? ($amount * 100))
                 . '&txn_ref=' . urlencode($txnRef)
                 . '&amount='  . $amount
             );
