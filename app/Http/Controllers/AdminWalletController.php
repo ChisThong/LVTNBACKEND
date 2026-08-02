@@ -36,19 +36,22 @@ class AdminWalletController extends Controller
 
         // Tổng số tiền nạp vào hệ thống (qua VNPay)
         $totalDeposits = WalletTransaction::where('type', 'deposit')
-            ->where('status', 'completed')
-            ->sum('amount');
+            ->whereIn('status', ['success', 'completed'])
+            ->sum(DB::raw('ABS(amount)'));
 
         // Tổng số tiền đã thanh toán (qua ví)
         $totalPayments = WalletTransaction::where('type', 'payment')
+            ->whereIn('status', ['success', 'completed'])
             ->sum(DB::raw('ABS(amount)'));
 
         // Tổng doanh thu hoa hồng
         $totalCommissions = WalletTransaction::where('type', 'commission')
+            ->whereIn('status', ['success', 'completed'])
             ->sum(DB::raw('ABS(amount)'));
 
         // Tổng tiền đã rút
         $totalWithdrawals = WalletTransaction::where('type', 'withdraw')
+            ->whereIn('status', ['success', 'completed', 'approved'])
             ->sum(DB::raw('ABS(amount)'));
 
         // Số yêu cầu rút chờ duyệt

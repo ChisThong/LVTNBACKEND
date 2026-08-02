@@ -147,6 +147,7 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     // ── Đơn hàng (Đã gộp thành công của cả HEAD và main) ───────────────────
     Route::get('/don-hang',                      [DonHangController::class, 'index'])->name('donhang.index');
     Route::get('/don-hang/{id}',                 [DonHangController::class, 'show'])->name('donhang.show');
+    Route::post('/don-hang/{id}/repay',           [DonHangController::class, 'repay'])->name('donhang.repay');
     Route::put('/orders/{id}/cancel',            [DonHangController::class, 'huyDonHang']);
     Route::put('/don-hang/{id}/confirm-received', [DonHangController::class, 'xacNhanNhanHang'])->name('donhang.confirm-received');
     Route::post('/reviews',                      [DanhGiaController::class, 'guiDanhGia']);
