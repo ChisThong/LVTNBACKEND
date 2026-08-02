@@ -188,7 +188,7 @@ class ThongKeController extends Controller
                     'so_luong' => (int)$tinh->products_count 
                 ];
             });
-            $thongKeDanhMuc = PhanLoaiSp::query()
+            $thongKeDanhMuc = PhanLoaiSP::query()
                 ->withCount('products') 
                 ->orderByDesc('products_count')
                 ->take(10)
