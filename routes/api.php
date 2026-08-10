@@ -92,6 +92,7 @@ Route::get('/test-pusher', function(\Illuminate\Http\Request $request) {
     return "Đã bắn tín hiệu test AdminActivityEvent!";
 });
 
+
 Route::get('/test-mail', function(\Illuminate\Http\Request $request) {
     $email = $request->query('email', 'nguyenchithong.209@gmail.com');
     try {
@@ -205,8 +206,9 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         Route::delete('/bandoControl/{id}', [VungMienController::class, 'destroy']);
 
         // Quản lý người dùng
-        Route::get('/Nguoidung',                    [NguoiDungController::class, 'index']);
+        
         Route::put('/Nguoidung/{id}/ChangeClock',   [NguoiDungController::class, 'changeclock']);
+        Route::get('/Nguoidung',[NguoiDungController::class, 'index']);
 
 
         // Wallet Admin
