@@ -265,9 +265,9 @@ class WalletService
     /**
      * Approve or reject withdrawal
      */
-    public function processWithdrawal(int $withdrawalId, string $status, int $adminId)
+    public function processWithdrawal(int $withdrawalId, string $status, int $adminId, ?string $note = null)
     {
-        return DB::transaction(function () use ($withdrawalId, $status, $adminId) {
+        return DB::transaction(function () use ($withdrawalId, $status, $adminId, $note) {
             $withdrawal = \App\Models\Withdrawal::lockForUpdate()->findOrFail($withdrawalId);
 
             if ($withdrawal->status !== 'pending') {
@@ -277,13 +277,15 @@ class WalletService
             $wallet = Wallet::where('id', $withdrawal->wallet_id)->lockForUpdate()->firstOrFail();
 
             if ($status === 'approved') {
-                $withdrawal->status = 'approved';
+                $withdrawal->status   = 'approved';
                 $withdrawal->admin_id = $adminId;
+                $withdrawal->note     = $note;
                 $wallet->frozen_balance -= $withdrawal->amount;
                 $wallet->save();
             } elseif ($status === 'rejected') {
-                $withdrawal->status = 'rejected';
+                $withdrawal->status   = 'rejected';
                 $withdrawal->admin_id = $adminId;
+                $withdrawal->note     = $note;
                 
                 // Refund back to available balance
                 $wallet->frozen_balance -= $withdrawal->amount;

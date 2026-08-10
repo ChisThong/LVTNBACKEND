@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Withdrawal;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -67,4 +68,40 @@ class WalletController extends Controller
             ], 400);
         }
     }
+
+    /**
+     * GET /api/withdrawals
+     * Lịch sử các yêu cầu rút tiền của user đang đăng nhập (buyer hoặc seller)
+     */
+    public function withdrawalHistory(Request $request)
+    {
+        $user = Auth::user();
+
+        $query = Withdrawal::where('user_id', $user->ID_User)
+            ->orderBy('created_at', 'desc');
+
+        // Filter theo trạng thái nếu có
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $withdrawals = $query->get()->map(function ($w) {
+            return [
+                'id'           => $w->id,
+                'amount'       => (float) $w->amount,
+                'status'       => $w->status,
+                'bank_name'    => $w->bank_name,
+                'bank_account' => $w->bank_account,
+                'note'         => $w->note,
+                'created_at'   => $w->created_at,
+                'updated_at'   => $w->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $withdrawals,
+        ]);
+    }
 }
+

@@ -15,7 +15,7 @@ class RegisterShopRequest extends FormRequest
     {
         return [
             'TenShop'     => ['required', 'string', 'min:3', 'max:100'],
-            'SCCD'        => ['required', 'string', 'max:20'],
+            'SCCD'        => ['required', 'string', 'regex:/^[0-9]{12}$/', 'unique:shop,SCCD'],
             'SoDienThoai' => ['required', 'string', 'max:15'],
             'DiaChi'      => ['required', 'string', 'max:255'],
             'SoTaiKhoang' => ['required', 'string', 'max:50'],
@@ -32,6 +32,8 @@ class RegisterShopRequest extends FormRequest
             'TenShop.required'     => 'Vui lòng nhập tên gian hàng.',
             'TenShop.min'          => 'Tên gian hàng phải có ít nhất 3 ký tự.',
             'SCCD.required'        => 'Vui lòng nhập số CCCD/CMND.',
+            'SCCD.regex'           => 'Số CCCD phải gồm đúng 12 chữ số.',
+            'SCCD.unique'          => 'Số CCCD này đã được đăng ký bởi một gian hàng khác.',
             'SoDienThoai.required' => 'Vui lòng nhập số điện thoại.',
             'SoDienThoai.max'      => 'Số điện thoại không hợp lệ.',
             'DiaChi.required'      => 'Vui lòng nhập địa chỉ gian hàng.',
