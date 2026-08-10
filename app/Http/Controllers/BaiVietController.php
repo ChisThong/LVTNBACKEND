@@ -41,35 +41,35 @@ class BaiVietController extends Controller
         }
     }
 
-    // /**
-    //  * 2. Xem chi tiết 1 bài viết
-    //  */
-    // public function show(string $id): JsonResponse
-    // {
-    //     try {
-    //         $blog = Blog::with('tinhThanh:ID_TinhThanh,TenTinhThanh')
-    //             ->where('ID_Blog', $id)
-    //             ->first();
+    /**
+     * 2. Xem chi tiết 1 bài viết
+     */
+    public function show(string $id): JsonResponse
+    {
+        try {
+            $blog = Blog::with('tinhThanh', 'user:ID_User,HoTen')
+                ->where('ID_Blog', $id)
+                ->first();
 
-    //         if (!$blog) {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => 'Không tìm thấy bài viết'
-    //             ], 404);
-    //         }
+            if (!$blog) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Không tìm thấy bài viết'
+                ], 404);
+            }
 
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Lấy chi tiết bài viết thành công',
-    //             'data'    => $blog
-    //         ], 200);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => 'Lỗi hệ thống: ' . $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
+            return response()->json([
+                'success' => true,
+                'message' => 'Lấy chi tiết bài viết thành công',
+                'data'    => $blog
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi hệ thống: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     /**
      * 3. Tạo bài viết mới

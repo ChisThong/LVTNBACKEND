@@ -124,7 +124,7 @@ Route::get('/phan-loai/{id}', [PhanLoaiController::class, 'show'])->name('phanlo
 Route::get('/vnpay/return',     [VNPayController::class, 'returnUrl'])->name('vnpay.return');
 Route::post('/vnpay/ipn',       [VNPayController::class, 'ipn'])->name('vnpay.ipn');
 Route::post('/vnpay/order-ipn', [DonHangController::class, 'vnpayIpn'])->name('vnpay.order.ipn');
-
+Route::get('/BlogControl/{id}',    [BaiVietController::class, 'show']);
 // ═══════════════════════════════════════════════════════════════════════════
 // PROTECTED — Cần Bearer Token (auth:sanctum)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -196,6 +196,7 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
         Route::post('/BlogControl',        [BaiVietController::class, 'store']);
         Route::delete('/BlogControl/{id}', [BaiVietController::class, 'destroy']);
         Route::put('/BlogControl/{id}',    [BaiVietController::class, 'update']);
+     
 
         // ── Quản lý Map ─────────────────────────────────────────────────────
         Route::get('/bandoControl',         [VungMienController::class, 'index']);

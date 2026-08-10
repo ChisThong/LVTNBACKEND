@@ -23,8 +23,12 @@ class VungMienController extends Controller
                 $query->where('ID_xa', $request->ID_Xa);
             } elseif ($request->filled('ID_TinhThanh')) {
                 $query->where('ID_TinhThanh', $request->ID_TinhThanh);
+            } elseif ($request->filled('tinhthanh')) {
+                $query->where('ID_TinhThanh', $request->tinhthanh);
             }
-
+            if ($request->filled('phanloai')) {
+                $query->where('PhanLoai', 'like', '%' . $request->phanloai . '%');
+            }
             $query->when($request->filled('search_map'), function ($search) use ($request) {
                 $search->where('TenDacSan', 'like', '%' . $request->search_map . '%');
             });
@@ -39,7 +43,7 @@ class VungMienController extends Controller
                 'success' => true,
                 'data' => $data
             ], 200);
-        } catch (\Exception $e) { 
+        } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Lỗi hệ thống: ' . $e->getMessage()
