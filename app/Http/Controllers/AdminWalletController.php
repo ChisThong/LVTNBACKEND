@@ -158,7 +158,7 @@ class AdminWalletController extends Controller
      */
     public function withdrawals(Request $request)
     {
-        $query = Withdrawal::with('user:ID_User,HoTen,email')
+        $query = Withdrawal::with('user:ID_User,HoTen,email,ID_role')
             ->orderBy('created_at', 'desc');
 
         // Filter: trạng thái
@@ -183,7 +183,35 @@ class AdminWalletController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $withdrawals = $query->get();
+        // Filter: lọc theo role (2=NguoiMua, 3=NguoiBan)
+        if ($request->filled('role')) {
+            $query->whereHas('user', function ($q) use ($request) {
+                $q->where('ID_role', $request->role);
+            });
+        }
+
+        $roleMap = [1 => 'Admin', 2 => 'NguoiMua', 3 => 'NguoiBan'];
+
+        $withdrawals = $query->get()->map(function ($w) use ($roleMap) {
+            $user = $w->user;
+            return [
+                'id'           => $w->id,
+                'amount'       => (float) $w->amount,
+                'status'       => $w->status,
+                'bank_name'    => $w->bank_name,
+                'bank_account' => $w->bank_account,
+                'note'         => $w->note,
+                'created_at'   => $w->created_at,
+                'updated_at'   => $w->updated_at,
+                'user' => $user ? [
+                    'ID_User'   => $user->ID_User,
+                    'HoTen'     => $user->HoTen,
+                    'email'     => $user->email,
+                    'ID_role'   => $user->ID_role,
+                    'role_name' => $roleMap[$user->ID_role] ?? 'Unknown',
+                ] : null,
+            ];
+        });
 
         return response()->json([
             'status' => 'success',
@@ -198,12 +226,14 @@ class AdminWalletController extends Controller
     public function processWithdrawal(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required|in:approved,rejected'
+            'status' => 'required|in:approved,rejected',
+            'note'   => 'nullable|string|max:500',
         ]);
 
         try {
             $adminId = \Illuminate\Support\Facades\Auth::id();
-            $withdrawal = $this->walletService->processWithdrawal($id, $request->status, $adminId);
+            $note    = $request->input('note');
+            $withdrawal = $this->walletService->processWithdrawal($id, $request->status, $adminId, $note);
 
             return response()->json([
                 'status'  => 'success',

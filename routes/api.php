@@ -157,6 +157,7 @@ Route::middleware(['auth:sanctum', 'check.status'])->group(function () {
     Route::get('/wallet',              [WalletController::class, 'index'])->name('wallet.index');
     Route::get('/wallet/transactions', [WalletController::class, 'transactions'])->name('wallet.transactions');
     Route::post('/withdrawals',        [WalletController::class, 'withdraw'])->name('wallet.withdraw');
+    Route::get('/withdrawals',         [WalletController::class, 'withdrawalHistory'])->name('wallet.withdrawal-history');
 
     // ── VNPay — Tạo thanh toán (throttle 5 req/phút để chống spam) ────────
     Route::middleware('throttle:5,1')

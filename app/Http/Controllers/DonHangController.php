@@ -30,7 +30,7 @@ class DonHangController extends Controller
             // ── 2. Lấy sản phẩm & CHỐNG RACE CONDITION (Khóa bi quan) ────────
             $sanPhamList = Product::whereIn('ID_SanPham', $sanPhamIds)
                                 ->where('TrangThai', 1)
-                                ->lockForUpdate()
+                                ->lockForUpdate()  //khóa kiểm tra 
                                 ->get()
                                 ->keyBy('ID_SanPham');
 
@@ -315,10 +315,54 @@ class DonHangController extends Controller
             ], 400);
         }
 
+        // ── Kiểm tra kho NẾU tất cả đơn con đã bị hủy (lần TT trước thất bại + IPN đã hoàn kho) ──
+        $donHangCons = DonHang::where('ID_DonHangTong', $donHangTong->ID_DonHangTong)->get();
+        $tatCaDaHuy  = $donHangCons->isNotEmpty()
+            && $donHangCons->every(fn($d) => $d->TrangThai == DonHang::TRANG_THAI_HUY);
+
+        if ($tatCaDaHuy) {
+            // Kho đã được hoàn lại → kiểm tra xem còn đủ hàng không trước khi cho TT lại
+            foreach ($donHangCons as $donHangCon) {
+                $chiTiets = DB::table('chitietdonhang')
+                    ->where('ID_DonHang', $donHangCon->ID_DonHang)
+                    ->get();
+
+                foreach ($chiTiets as $ct) {
+                    $sp = Product::find($ct->ID_SanPham);
+                    if (!$sp || $sp->SoLuongTon < $ct->SoLuong) {
+                        $tenSP = $sp->TenSanPham ?? "ID {$ct->ID_SanPham}";
+                        return response()->json([
+                            'success' => false,
+                            'message' => "Sản phẩm \"{$tenSP}\" đã hết hàng. Không thể thanh toán lại. Vui lòng hủy đơn hàng.",
+                        ], 422);
+                    }
+                }
+            }
+        }
+
         $phuongThuc = $request->input('PhuongThucThanhToan', 'VNPAY');
 
         if ($phuongThuc === 'WALLET') {
             try {
+                DB::beginTransaction();
+
+                // Nếu đơn con đã bị hủy → khôi phục lại và trừ kho
+                if ($tatCaDaHuy) {
+                    foreach ($donHangCons as $donHangCon) {
+                        $chiTiets = DB::table('chitietdonhang')
+                            ->where('ID_DonHang', $donHangCon->ID_DonHang)
+                            ->get();
+                        foreach ($chiTiets as $ct) {
+                            Product::where('ID_SanPham', $ct->ID_SanPham)
+                                ->lockForUpdate()
+                                ->first()
+                                ?->decrement('SoLuongTon', $ct->SoLuong);
+                        }
+                        $donHangCon->TrangThai = DonHang::TRANG_THAI_CHO_XAC_NHAN;
+                        $donHangCon->save();
+                    }
+                }
+
                 $walletService = app(\App\Services\WalletService::class);
                 $walletService->payment(
                     $user->ID_User,
@@ -330,12 +374,14 @@ class DonHangController extends Controller
                 $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
                 $donHangTong->PhuongThucThanhToan = 'WALLET';
                 $donHangTong->save();
+                DB::commit();
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Thanh toán thành công qua Ví!'
                 ]);
             } catch (\Exception $e) {
+                DB::rollBack();
                 return response()->json([
                     'success' => false,
                     'message' => $e->getMessage()
@@ -423,6 +469,37 @@ class DonHangController extends Controller
                 $donHangTong->TrangThaiThanhToan = DonHangTong::THANH_TOAN_DA_THANH_TOAN;
                 $donHangTong->PhuongThucThanhToan = 'VNPAY';
                 $donHangTong->save();
+
+                // ── Xử lý trường hợp Thanh toán lại (Repay) ────────────────────
+                // Nếu tất cả đơn con đã bị hủy (do lần TT trước thất bại + IPN đã hoàn kho)
+                // → Khôi phục đơn con về "Chờ xác nhận" và trừ kho trở lại
+                $donHangConsCheck = DonHang::where('ID_DonHangTong', $idDonHangTong)->get();
+                $tatCaDaHuy = $donHangConsCheck->isNotEmpty()
+                    && $donHangConsCheck->every(fn($d) => $d->TrangThai == DonHang::TRANG_THAI_HUY);
+
+                if ($tatCaDaHuy) {
+                    foreach ($donHangConsCheck as $donHangCon) {
+                        $chiTiets = DB::table('chitietdonhang')
+                            ->where('ID_DonHang', $donHangCon->ID_DonHang)
+                            ->get();
+
+                        foreach ($chiTiets as $ct) {
+                            // Trừ kho với lockForUpdate để chống race condition
+                            $product = Product::where('ID_SanPham', $ct->ID_SanPham)
+                                ->lockForUpdate()
+                                ->first();
+                            if ($product) {
+                                $product->decrement('SoLuongTon', $ct->SoLuong);
+                            }
+                        }
+
+                        // Khôi phục đơn con về Chờ xác nhận
+                        $donHangCon->TrangThai = DonHang::TRANG_THAI_CHO_XAC_NHAN;
+                        $donHangCon->save();
+                    }
+
+                    \Illuminate\Support\Facades\Log::channel('vnpay')->info('[DonHangController][vnpayIpn] REPAY SUCCESS — Sub-orders restored and stock decremented', ['txnRef' => $txnRef]);
+                }
 
                 \Illuminate\Support\Facades\Log::channel('vnpay')->info('[DonHangController][vnpayIpn] SUCCESS — Order payment confirmed', ['txnRef' => $txnRef]);
             } else {
@@ -679,6 +756,31 @@ class DonHangController extends Controller
                     'reference_type' => 'donhang_admin',
                     'reference_id'   => $donHang->ID_DonHang,
                 ]);
+
+                // 4c. [FIX] Giải phóng frozen_balance của Buyer (chỉ áp dụng WALLET)
+                // VNPAY không dùng frozen_balance của buyer → không cần trừ.
+                if ($phuongThuc === 'WALLET') {
+                    $buyerWallet = \App\Models\Wallet::where('user_id', $donHang->ID_User)
+                        ->lockForUpdate()
+                        ->first();
+
+                    if ($buyerWallet && $buyerWallet->frozen_balance >= $tongGia) {
+                        $beforeBuyerFrozen = $buyerWallet->frozen_balance;
+                        $buyerWallet->frozen_balance -= $tongGia;
+                        $buyerWallet->save();
+
+                        \App\Models\WalletTransaction::create([
+                            'wallet_id'      => $buyerWallet->id,
+                            'type'           => 'release',
+                            'status'         => 'success',
+                            'amount'         => -$tongGia, // Âm = frozen bị giải phóng
+                            'balance_before' => $buyerWallet->balance,
+                            'balance_after'  => $buyerWallet->balance, // balance không đổi
+                            'reference_type' => 'donhang_release_frozen',
+                            'reference_id'   => $donHang->ID_DonHang,
+                        ]);
+                    }
+                }
 
             } else {
                 // ── LUỒNG COD (Tiền mặt khi nhận hàng) ───────────────────────
