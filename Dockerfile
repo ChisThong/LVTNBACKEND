@@ -30,8 +30,12 @@ RUN composer install --no-interaction --optimize-autoloader --no-dev --prefer-in
 # Tạo liên kết lưu trữ (thêm cờ --force để tránh lỗi nếu đã tồn tại)
 RUN php artisan storage:link --force
 
-# Tự động tìm và cấu hình PHP-FPM lắng nghe qua cổng TCP 127.0.0.1:9000
-RUN find /etc -name "www.conf" -exec sed -i 's/listen = .*/listen = 127.0.0.1:9000/g' {} +
+# Tự động tìm và cấu hình PHP-FPM lắng nghe qua cổng TCP và tăng giới hạn xử lý đồng thời
+RUN find /etc -name "www.conf" -exec sed -i 's/listen = .*/listen = 127.0.0.1:9000/g' {} + \
+    && find /etc -name "www.conf" -exec sed -i 's/pm.max_children = .*/pm.max_children = 20/g' {} + \
+    && find /etc -name "www.conf" -exec sed -i 's/pm.start_servers = .*/pm.start_servers = 4/g' {} + \
+    && find /etc -name "www.conf" -exec sed -i 's/pm.min_spare_servers = .*/pm.min_spare_servers = 2/g' {} + \
+    && find /etc -name "www.conf" -exec sed -i 's/pm.max_spare_servers = .*/pm.max_spare_servers = 6/g' {} +
 
 # Cấu hình Nginx và Supervisor
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
