@@ -94,8 +94,6 @@ class DanhGiaController extends Controller
                 'BinhLuan'    => $request->input('BinhLuan'),
                 'HinhAnh'     => $pathHinhAnh,
             ]);
-
-            // Dispatch notification to Seller
             try {
                 $danhGiaMoi->load('sanPham');
                 $idShop = $danhGiaMoi->sanPham->ID_Shop ?? null;
