@@ -23,17 +23,13 @@ class ThanhToan extends Model
     protected $fillable = [
         'PhuongThuc',
         'code_GiaoDich',
-        'MoMo_TransId',          // Lưu mã giao dịch MoMo để sau này làm Refund
+        'MoMo_TransId',         
         'VNPay_TransactionNo',   // Lưu mã giao dịch VNPay để sau này làm Refund
         'SoTien',
         'TrangThai',
         'Date',
         'ID_DonHangTong'         // Khóa ngoại liên kết với đơn hàng tổng mới
     ];
-
-    // =========================================================================
-    // ĐỊNH NGHĨA CÁC MỐI QUAN HỆ (RELATIONSHIPS)
-    // =========================================================================
 
     /**
      * Mối quan hệ: Một bản ghi thanh toán sẽ thuộc về Một Đơn hàng tổng

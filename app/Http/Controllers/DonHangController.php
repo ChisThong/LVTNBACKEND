@@ -736,6 +736,9 @@ class DonHangController extends Controller
                         'reference_type' => 'donhang_seller',
                         'reference_id'   => $donHang->ID_DonHang,
                     ]);
+
+                    // Tự động thu nợ hoa hồng COD còn pending (nếu có)
+                    app(\App\Services\WalletService::class)->settlePendingCommissions($sellerWallet);
                 }
 
                 // 4b. Cộng 5% hoa hồng vào Ví Admin

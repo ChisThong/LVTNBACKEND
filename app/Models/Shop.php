@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class Shop extends Model
 {
-    // ─── Trạng thái duyệt ────────────────────────────────────────────────────
     const DUYET_CHO     = 'cho_duyet';
     const DUYET_DA      = 'da_duyet';
     const DUYET_TU_CHOI = 'tu_choi';
@@ -48,23 +47,17 @@ class Shop extends Model
 
     // ─── Relationships ────────────────────────────────────────────────────────
 
-    /**
-     * User (NguoiBan) sở hữu shop này.
-     */
+
     public function user()
     {
         return $this->belongsTo(User::class, 'ID_User', 'ID_User');
     }
 
-    /**
-     * Các sản phẩm thuộc shop này.
-     */
     public function products()
     {
         return $this->hasMany(Product::class, 'ID_Shop', 'ID_Shop');
     }
 
-    // ─── Helpers ─────────────────────────────────────────────────────────────
 
     public function isDaDuyet(): bool
     {

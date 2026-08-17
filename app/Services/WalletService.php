@@ -79,6 +79,9 @@ class WalletService
             $transaction->balance_after = $wallet->balance;
             $transaction->save();
 
+            // Tự động thu nợ hoa hồng COD còn pending (nếu có)
+            $this->settlePendingCommissions($wallet);
+
             return $transaction;
         });
     }
@@ -308,5 +311,69 @@ class WalletService
             $withdrawal->save();
             return $withdrawal;
         });
+    }
+
+    /**
+     * Tự động thu nợ hoa hồng COD còn đang pending.
+     * Gọi sau bất kỳ thao tác nào làm tăng balance của seller:
+     *   - Nạp tiền thành công (confirmDeposit)
+     *   - Nhận tiền từ đơn hàng hoàn tất (xacNhanNhanHang)
+     *
+     * Wallet phải đã được lockForUpdate() bởi transaction bên ngoài.
+     */
+    public function settlePendingCommissions(Wallet $wallet): void
+    {
+        // Lấy tất cả khoản nợ hoa hồng theo thứ tự cũ nhất trước
+        $pendingDebts = WalletTransaction::where('wallet_id', $wallet->id)
+            ->where('type', 'commission')
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        if ($pendingDebts->isEmpty()) {
+            return;
+        }
+
+        $adminUserId = 6; // ID Admin cố định
+
+        foreach ($pendingDebts as $debt) {
+            $owed = abs($debt->amount); // Số tiền nợ (amount lưu âm)
+
+            if ($wallet->balance < $owed) {
+                break; // Không đủ tiền trả khoản này → dừng
+            }
+
+            // Trừ tiền nợ khỏi ví seller
+            $beforeSeller = $wallet->balance;
+            $wallet->balance -= $owed;
+            $wallet->save();
+
+            // Cập nhật trạng thái khoản nợ → đã thu
+            // Đổi reference_type để frontend phân biệt rõ "nợ COD" vs "đã trả nợ COD"
+            $debt->status         = 'success';
+            $debt->reference_type = 'cod_commission_settled';
+            $debt->balance_before = $beforeSeller;
+            $debt->balance_after  = $wallet->balance;
+            $debt->save();
+
+            // Cộng hoa hồng vào ví Admin
+            $adminWallet = Wallet::lockForUpdate()->where('user_id', $adminUserId)->first();
+            if ($adminWallet) {
+                $beforeAdmin           = $adminWallet->balance;
+                $adminWallet->balance += $owed;
+                $adminWallet->save();
+
+                WalletTransaction::create([
+                    'wallet_id'      => $adminWallet->id,
+                    'type'           => 'commission',
+                    'status'         => 'success',
+                    'amount'         => $owed,
+                    'balance_before' => $beforeAdmin,
+                    'balance_after'  => $adminWallet->balance,
+                    'reference_type' => $debt->reference_type,
+                    'reference_id'   => $debt->reference_id,
+                ]);
+            }
+        }
     }
 }

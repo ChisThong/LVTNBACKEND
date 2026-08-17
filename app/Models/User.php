@@ -10,24 +10,16 @@ class User extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
-    /**
-     * Tên bảng tuỳ chỉnh.
-     */
     protected $table = 'user';
 
-    /**
-     * Khoá chính tuỳ chỉnh.
-     */
+   
     protected $primaryKey = 'ID_User';
 
-    /**
-     * Không dùng timestamps mặc định của Laravel (created_at / updated_at).
-     * Bảng user chỉ có ngaydangki.
-     */
+    
     public $timestamps = false;
 
     /**
-     * Các trường cho phép mass-assignment.
+     * 
      *
      * @var list<string>
      */
@@ -40,12 +32,12 @@ class User extends Authenticatable
         'TrangThai',
         'ngaydangki',
         'ID_role',
-        'google_id',   // Google OAuth2: sub claim
-        'avatar',      // URL ảnh đại diện từ Google hoặc upload
+        'google_id',   
+        'avatar',      
     ];
 
     /**
-     * Các trường ẩn khi serialize (trả về JSON).
+     * 
      *
      * @var list<string>
      */
@@ -53,89 +45,61 @@ class User extends Authenticatable
         'matkhau',
     ];
 
-    /**
-     * Các trường computed thêm vào JSON response.
-     */
+    
     protected $appends = ['has_password'];
 
     /**
-     * Kiểu dữ liệu cast cho các trường.
+     * 
      *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            // KHÔNG dùng 'hashed' vì AuthController dùng Hash::make() thủ công
-            // Nếu để 'hashed' sẽ bị double-hash → login thất bại
             'TrangThai'  => 'integer',
             'ngaydangki' => 'datetime',
         ];
     }
 
-    /**
-     * Trỏ tới trường mật khẩu thực tế trong bảng.
-     * Sanctum / Auth dùng getAuthPassword() → cần override.
-     */
     public function getAuthPassword(): string
     {
         return $this->matkhau;
     }
 
-    /**
-     * Computed attribute: user có mật khẩu hay không.
-     * Trả về true  → đăng ký bằng email/pass (có thể đổi mật khẩu).
-     * Trả về false → đăng ký thuần Google, chưa bao giờ set pass.
-     */
     public function getHasPasswordAttribute(): bool
     {
         return isset($this->attributes['matkhau'])
             && !empty($this->attributes['matkhau']);
     }
 
-    /**
-     * Quan hệ: User thuộc về một Role.
-     */
     public function role()
     {
         return $this->belongsTo(Role::class, 'ID_role', 'ID_role');
     }
 
-    /**
-     * Quan hệ: User có một Shop (NguoiBan).
-     */
+  
     public function shop()
     {
         return $this->hasOne(Shop::class, 'ID_User', 'ID_User');
     }
 
-    /**
-     * Quan hệ: User có một ví điện tử.
-     */
+   
     public function wallet()
     {
         return $this->hasOne(Wallet::class, 'user_id', 'ID_User');
     }
 
-    /**
-     * Helper: kiểm tra role theo tên.
-     */
     public function hasRole(string $roleName): bool
     {
         return $this->role && $this->role->Ten_role === $roleName;
     }
 
-    /**
-     * Helper: kiểm tra role theo ID.
-     */
+   
     public function hasRoleId(int $roleId): bool
     {
         return (int) $this->ID_role === $roleId;
     }
 
-    /**
-     * Scope: lọc theo khoảng thời gian đăng ký.
-     */
     public function scopeBetweenDate($query, $startDate, $endDate)
     {
         return $query->whereBetween('ngaydangki', [$startDate, $endDate]);
