@@ -30,10 +30,10 @@ RUN composer install --no-interaction --optimize-autoloader --no-dev --prefer-in
 # Tạo liên kết lưu trữ (thêm cờ --force để tránh lỗi nếu đã tồn tại)
 RUN php artisan storage:link --force
 
-# Ép PHP-FPM trên Alpine lắng nghe qua cổng TCP 127.0.0.1:9000
-RUN sed -i 's/listen = 127.0.0.1:9000/listen = 127.0.0.1:9000/g' /etc/php82/php-fpm.d/www.conf || \
-    sed -i 's/listen = \/run\/php\/php8.2-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php82/php-fpm.d/www.conf || \
-    sed -i 's/listen = .*/listen = 127.0.0.1:9000/g' /etc/php82/php-fpm.d/www.conf
+# Ép PHP-FPM trên Alpine lắng nghe qua cổng TCP 127.0.0.1:9000 (Sửa lại đường dẫn chuẩn /etc/php8/)
+RUN sed -i 's/listen = 127.0.0.1:9000/listen = 127.0.0.1:9000/g' /etc/php8/php-fpm.d/www.conf || \
+    sed -i 's/listen = \/run\/php\/php8.2-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php8/php-fpm.d/www.conf || \
+    sed -i 's/listen = .*/listen = 127.0.0.1:9000/g' /etc/php8/php-fpm.d/www.conf
 
 # Cấu hình Nginx và Supervisor
 COPY ./docker/nginx.conf /etc/nginx/nginx.conf
