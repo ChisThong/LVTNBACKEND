@@ -77,7 +77,7 @@ class AdminWalletController extends Controller
 
     /**
      * GET /api/admin/wallet/transactions
-     * Danh sách giao dịch toàn hệ thống (có filter + phân trang)
+     * Danh sách giao dịch toàn hệ thống
      */
     public function transactions(Request $request)
     {
@@ -154,7 +154,7 @@ class AdminWalletController extends Controller
 
     /**
      * GET /api/admin/wallet/withdrawals
-     * Danh sách yêu cầu rút tiền (có filter)
+     * Danh sách yêu cầu rút tiền
      */
     public function withdrawals(Request $request)
     {

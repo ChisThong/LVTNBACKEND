@@ -50,9 +50,6 @@ class AuthController extends Controller
         Mail::to($user->email)->send(new SendOtpMail($user->HoTen, $otp));
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  Helper: trả về response tài khoản bị khóa (403)
-    // ──────────────────────────────────────────────────────────────────────
     private function responseBanned(): JsonResponse
     {
         return response()->json([
@@ -62,14 +59,6 @@ class AuthController extends Controller
         ], 403);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  POST /api/auth/register
-    // ──────────────────────────────────────────────────────────────────────
-    /**
-     * Đăng ký tài khoản mới.
-     * User được tạo với TrangThai = 0 (chưa xác thực).
-     * Sau đó sinh OTP và gửi email.
-     */
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::create([
@@ -102,12 +91,6 @@ class AuthController extends Controller
         ], 201);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  POST /api/auth/verify-otp
-    // ──────────────────────────────────────────────────────────────────────
-    /**
-     * Xác thực OTP — kích hoạt tài khoản.
-     */
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
         $record = EmailVerification::where('email', $request->email)
@@ -141,12 +124,7 @@ class AuthController extends Controller
         ]);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  POST /api/auth/resend-otp
-    // ──────────────────────────────────────────────────────────────────────
-    /**
-     * Gửi lại OTP — hủy OTP cũ, sinh mới, gửi email mới.
-     */
+
     public function resendOtp(ResendOtpRequest $request): JsonResponse
     {
         $user = User::where('email', $request->email)->first();
@@ -166,13 +144,7 @@ class AuthController extends Controller
         ]);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  POST /api/auth/login
-    // ──────────────────────────────────────────────────────────────────────
-    /**
-     * Đăng nhập — kiểm tra email + mật khẩu.
-     * Thứ tự: sai credentials → chưa xác thực email → bị khóa → OK.
-     */
+
     public function login(LoginRequest $request): JsonResponse
     {
         $user = User::where('email', $request->email)->first();
@@ -215,12 +187,7 @@ class AuthController extends Controller
         ]);
     }
 
-    // ──────────────────────────────────────────────────────────────────────
-    //  POST /api/auth/google
-    // ──────────────────────────────────────────────────────────────────────
-    /**
-     * Đăng nhập / Đăng ký bằng Google OAuth2.
-     */
+
     public function loginWithGoogle(Request $request): JsonResponse
     {
         $request->validate([

@@ -9,17 +9,13 @@ use Exception;
 
 class WalletService
 {
-    /**
-     * Get or create a wallet for a user
-     */
+
     public function getWallet(int $userId)
     {
         return Wallet::firstOrCreate(['user_id' => $userId]);
     }
 
-    /**
-     * Create a pending deposit transaction before calling payment gateway
-     */
+ 
     public function createPendingTransaction(int $userId, float $amount, string $refType, string $refId)
     {
         return DB::transaction(function () use ($userId, $amount, $refType, $refId) {
@@ -30,21 +26,17 @@ class WalletService
                 'type' => 'deposit',
                 'status' => 'pending',
                 'amount' => $amount,
-                'balance_before' => null, // Will be set on confirm
-                'balance_after' => null,  // Will be set on confirm
+                'balance_before' => null, 
+                'balance_after' => null, 
                 'reference_type' => $refType,
                 'reference_id' => $refId
             ]);
         });
     }
 
-    /**
-     * Confirm a pending deposit transaction (Idempotent via DB lock)
-     */
     public function confirmDeposit(string $refType, string $refId, float $amount)
     {
         return DB::transaction(function () use ($refType, $refId, $amount) {
-            // Lock the transaction to prevent race conditions from duplicate IPNs
             $transaction = WalletTransaction::where('reference_type', $refType)
                 ->where('reference_id', $refId)
                 ->lockForUpdate()
@@ -55,7 +47,6 @@ class WalletService
             }
 
             if ($transaction->status === 'success') {
-                // Idempotent: Already processed successfully
                 return $transaction;
             }
 
@@ -67,7 +58,6 @@ class WalletService
                 throw new Exception("Số tiền giao dịch không khớp");
             }
 
-            // Lock the wallet to prevent race conditions
             $wallet = Wallet::where('id', $transaction->wallet_id)->lockForUpdate()->firstOrFail();
 
             $before = $wallet->balance;
@@ -79,16 +69,12 @@ class WalletService
             $transaction->balance_after = $wallet->balance;
             $transaction->save();
 
-            // Tự động thu nợ hoa hồng COD còn pending (nếu có)
             $this->settlePendingCommissions($wallet);
 
             return $transaction;
         });
     }
 
-    /**
-     * Fail a pending deposit transaction
-     */
     public function failTransaction(string $refType, string $refId)
     {
         return DB::transaction(function () use ($refType, $refId) {
@@ -106,9 +92,7 @@ class WalletService
         });
     }
 
-    /**
-     * Make a payment (move balance to frozen balance)
-     */
+
     public function payment(int $userId, float $amount, string $refType = null, string $refId = null)
     {
         return DB::transaction(function () use ($userId, $amount, $refType, $refId) {
@@ -147,16 +131,13 @@ class WalletService
         });
     }
 
-    /**
-     * Complete order and release funds to seller
-     */
     public function completePurchase(int $buyerId, int $sellerId, float $amount, string $refType = null, string $refId = null)
     {
         return DB::transaction(function () use ($buyerId, $sellerId, $amount, $refType, $refId) {
             if ($refType && $refId) {
                 $exists = WalletTransaction::where('reference_type', $refType)
                     ->where('reference_id', $refId)
-                    ->where('type', 'release') // Release for buyer indicates completion started
+                    ->where('type', 'release') 
                     ->lockForUpdate()
                     ->exists();
                 if ($exists) {
@@ -164,7 +145,6 @@ class WalletService
                 }
             }
 
-            // 1. Release frozen balance from buyer safely
             $buyerWallet = Wallet::where('user_id', $buyerId)->lockForUpdate()->firstOrFail();
             if ($buyerWallet->frozen_balance < $amount) {
                 throw new Exception('Số dư đóng băng không đủ để hoàn tất đơn');
@@ -176,19 +156,17 @@ class WalletService
                 'wallet_id' => $buyerWallet->id,
                 'type' => 'release',
                 'status' => 'success',
-                'amount' => 0, // No change to available balance
+                'amount' => 0, 
                 'balance_before' => $buyerWallet->balance,
                 'balance_after' => $buyerWallet->balance,
                 'reference_type' => $refType,
                 'reference_id' => $refId
             ]);
 
-            // 2. Add full funds to seller safely, then deduct commission
             $sellerWallet = Wallet::where('user_id', $sellerId)->lockForUpdate()->firstOrFail();
             
-            $commission = $amount * 0.05; // 5% fee
+            $commission = $amount * 0.05; 
 
-            // Deposit 100%
             $beforeSeller = $sellerWallet->balance;
             $sellerWallet->balance += $amount;
             $sellerWallet->save();
@@ -204,7 +182,6 @@ class WalletService
                 'reference_id' => $refId
             ]);
 
-            // Deduct 5% commission
             $beforeCommission = $sellerWallet->balance;
             $sellerWallet->balance -= $commission;
             $sellerWallet->save();
@@ -224,9 +201,6 @@ class WalletService
         });
     }
 
-    /**
-     * Request withdrawal
-     */
     public function withdraw(int $userId, float $amount, string $bankName, string $bankAccount)
     {
         return DB::transaction(function () use ($userId, $amount, $bankName, $bankAccount) {
@@ -253,7 +227,7 @@ class WalletService
             WalletTransaction::create([
                 'wallet_id' => $wallet->id,
                 'type' => 'withdraw',
-                'status' => 'success', // The *request* was successfully deducted from balance
+                'status' => 'success', 
                 'amount' => -$amount,
                 'balance_before' => $before,
                 'balance_after' => $wallet->balance,
@@ -265,9 +239,6 @@ class WalletService
         });
     }
 
-    /**
-     * Approve or reject withdrawal
-     */
     public function processWithdrawal(int $withdrawalId, string $status, int $adminId, ?string $note = null)
     {
         return DB::transaction(function () use ($withdrawalId, $status, $adminId, $note) {
@@ -289,8 +260,7 @@ class WalletService
                 $withdrawal->status   = 'rejected';
                 $withdrawal->admin_id = $adminId;
                 $withdrawal->note     = $note;
-                
-                // Refund back to available balance
+  
                 $wallet->frozen_balance -= $withdrawal->amount;
                 $before = $wallet->balance;
                 $wallet->balance += $withdrawal->amount;
@@ -298,7 +268,7 @@ class WalletService
                 
                 WalletTransaction::create([
                     'wallet_id' => $wallet->id,
-                    'type' => 'deposit', // Refund
+                    'type' => 'deposit',
                     'status' => 'success',
                     'amount' => $withdrawal->amount,
                     'balance_before' => $before,
@@ -312,18 +282,9 @@ class WalletService
             return $withdrawal;
         });
     }
-
-    /**
-     * Tự động thu nợ hoa hồng COD còn đang pending.
-     * Gọi sau bất kỳ thao tác nào làm tăng balance của seller:
-     *   - Nạp tiền thành công (confirmDeposit)
-     *   - Nhận tiền từ đơn hàng hoàn tất (xacNhanNhanHang)
-     *
-     * Wallet phải đã được lockForUpdate() bởi transaction bên ngoài.
-     */
     public function settlePendingCommissions(Wallet $wallet): void
     {
-        // Lấy tất cả khoản nợ hoa hồng theo thứ tự cũ nhất trước
+
         $pendingDebts = WalletTransaction::where('wallet_id', $wallet->id)
             ->where('type', 'commission')
             ->where('status', 'pending')
@@ -333,30 +294,24 @@ class WalletService
         if ($pendingDebts->isEmpty()) {
             return;
         }
-
-        $adminUserId = 6; // ID Admin cố định
-
+        $adminUserId = 6; 
         foreach ($pendingDebts as $debt) {
-            $owed = abs($debt->amount); // Số tiền nợ (amount lưu âm)
+            $owed = abs($debt->amount); 
 
             if ($wallet->balance < $owed) {
-                break; // Không đủ tiền trả khoản này → dừng
+                break; 
             }
 
-            // Trừ tiền nợ khỏi ví seller
             $beforeSeller = $wallet->balance;
             $wallet->balance -= $owed;
             $wallet->save();
 
-            // Cập nhật trạng thái khoản nợ → đã thu
-            // Đổi reference_type để frontend phân biệt rõ "nợ COD" vs "đã trả nợ COD"
             $debt->status         = 'success';
             $debt->reference_type = 'cod_commission_settled';
             $debt->balance_before = $beforeSeller;
             $debt->balance_after  = $wallet->balance;
             $debt->save();
 
-            // Cộng hoa hồng vào ví Admin
             $adminWallet = Wallet::lockForUpdate()->where('user_id', $adminUserId)->first();
             if ($adminWallet) {
                 $beforeAdmin           = $adminWallet->balance;
