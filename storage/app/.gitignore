@@ -1,4 +1,9 @@
 *
 !private/
 !public/
+!public/blogs/
+!public/danhgia/
+!public/Map/
+!public/products/
+!public/TinhThanh/
 !.gitignore
