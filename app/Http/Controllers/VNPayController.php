@@ -8,15 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
-/**
- * VNPayController — Xử lý tích hợp thanh toán VNPay Sandbox
- *
- * Routes:
- *  POST  /api/vnpay/create-payment  [auth:sanctum, throttle:5,1]  → Tạo URL thanh toán
- *  GET   /vnpay-return               [web, public]                 → VNPay redirect trình duyệt về
- *  GET   /api/vnpay/return           [api, public]                 → Alias (giữ backward compat)
- *  POST  /api/vnpay/ipn              [api, public]                 → VNPay IPN server-to-server
- */
 class VNPayController extends Controller
 {
     protected VNPayService  $vnpayService;
@@ -28,19 +19,6 @@ class VNPayController extends Controller
         $this->walletService = $walletService;
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // BƯỚC 3: Tạo URL thanh toán — redirect user sang VNPay
-    // ══════════════════════════════════════════════════════════════════════
-
-    /**
-     * POST /api/vnpay/create-payment
-     *
-     * 1. Validate amount
-     * 2. Tạo mã giao dịch duy nhất (txnRef)
-     * 3. Lưu giao dịch PENDING vào DB
-     * 4. Gọi VNPayService::createPaymentUrl()
-     * 5. Trả về payUrl cho frontend redirect
-     */
     public function createPayment(Request $request)
     {
         $request->validate([
@@ -111,18 +89,6 @@ class VNPayController extends Controller
     // GET /vnpay-return — Nhận redirect từ VNPay qua web route (ngrok)
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET /vnpay-return
-     *
-     * VNPay redirect trình duyệt người dùng về đây sau khi thanh toán.
-     * Route này nằm trong web.php (không có prefix /api).
-     *
-     * Logic bảo mật:
-     *  1. Xác thực chữ ký vnp_SecureHash
-     *  2. Kiểm tra vnp_ResponseCode == '00' → thành công
-     *  3. Cộng tiền vào ví (idempotent, IPN có thể đã xử lý trước)
-     *  4. Redirect về React frontend kèm status + txn_ref
-     */
     public function vnpayReturn(Request $request)
     {
         $data         = $request->all();
@@ -213,13 +179,7 @@ class VNPayController extends Controller
         );
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // GET /api/vnpay/return — Alias giữ backward compat (dùng cùng logic)
-    // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET /api/vnpay/return — Alias backward-compat, gọi lại vnpayReturn().
-     */
     public function returnUrl(Request $request)
     {
         $data         = $request->all();
@@ -295,27 +255,6 @@ class VNPayController extends Controller
             . '&txnRef='       . urlencode($txnRef)
         );
     }
-
-    // ══════════════════════════════════════════════════════════════════════
-    // BƯỚC 4 (IPN): Xử lý IPN server-to-server từ VNPay (quan trọng nhất)
-    // ══════════════════════════════════════════════════════════════════════
-
-    /**
-     * POST /api/vnpay/ipn
-     *
-     * VNPay gọi server-to-server về đây (không qua browser, không phụ thuộc user).
-     * Đây là cơ chế đảm bảo chính — phải xử lý đúng và trả JSON chuẩn VNPay.
-     *
-     * Kiểm tra bảo mật (theo thứ tự — theo tài liệu VNPay):
-     *  1. Kiểm tra vnp_SecureHash hợp lệ
-     *  2. Kiểm tra đơn hàng tồn tại (vnp_TxnRef)
-     *  3. Kiểm tra số tiền khớp (vnp_Amount / 100 == DB amount)
-     *  4. Kiểm tra trạng thái đơn chưa xử lý (chỉ cập nhật nếu đang PENDING)
-     *  5. Nếu vnp_ResponseCode == "00" → cập nhật THÀNH CÔNG, cộng tiền vào ví
-     *
-     * Response format chuẩn VNPay:
-     *  {"RspCode": "00", "Message": "Confirm Success"}
-     */
     public function ipn(Request $request)
     {
         $data = $request->all();
